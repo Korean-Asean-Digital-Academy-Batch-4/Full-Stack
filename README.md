@@ -141,6 +141,10 @@ yang sudah digabungkan ke project ini sampai 12 Agustus 2026.
     database Administrator, dan PDF membaca snapshot tersebut sehingga perubahan data
     sumber setelah finalisasi tidak mengubah rapor yang sudah resmi. Finalisasi ulang
     juga tidak dapat menimpa snapshot lama.
+15. **Landing page publik.** Route utama `/` kini menampilkan landing page EduTrack
+    yang sederhana dan responsif sebelum login. Halaman ini memuat ringkasan fitur,
+    preview dashboard, pilihan interaktif pengalaman Administrator/Guru/Siswa, menu
+    mobile, serta CTA yang mengarah ke login atau dashboard bila sesi masih aktif.
 
 ### Verifikasi update terkini
 

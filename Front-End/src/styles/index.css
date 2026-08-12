@@ -30,6 +30,7 @@ html {
   min-width: 320px;
   background: #f7f9fc;
   overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -72,6 +73,45 @@ textarea:focus-visible {
 
 .auth-card-enter {
   animation: auth-card-in 320ms ease-out both;
+}
+
+.landing-grid {
+  background-image:
+    linear-gradient(rgba(47, 103, 237, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 103, 237, 0.045) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.landing-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.landing-orb-one {
+  top: 7rem;
+  left: -8rem;
+  width: 24rem;
+  height: 24rem;
+  background: radial-gradient(circle, rgba(47, 103, 237, 0.14), transparent 68%);
+}
+
+.landing-orb-two {
+  right: -7rem;
+  bottom: -5rem;
+  width: 28rem;
+  height: 28rem;
+  background: radial-gradient(circle, rgba(115, 87, 246, 0.14), transparent 68%);
+}
+
+.landing-float {
+  animation: landing-float 5s ease-in-out infinite;
+}
+
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 @keyframes auth-card-in {

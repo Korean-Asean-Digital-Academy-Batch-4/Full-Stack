@@ -5,6 +5,7 @@ import DashboardPage from "../pages/DashboardPage";
 import ForbiddenPage from "../pages/ForbiddenPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import LoginPage from "../pages/LoginPage";
+import LandingPage from "../pages/LandingPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import TeacherAccountPage from "../pages/teacher/TeacherAccountPage";
 import TeacherAttendancePage from "../pages/teacher/TeacherAttendancePage";
@@ -41,7 +42,7 @@ import RoleRoute from "./RoleRoute";
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/403" element={<ForbiddenPage />} />
