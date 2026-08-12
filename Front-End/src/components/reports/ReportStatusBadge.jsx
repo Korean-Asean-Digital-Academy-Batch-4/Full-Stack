@@ -8,6 +8,7 @@ const styles = {
   [REPORT_STATUSES.GENERATING]: "bg-blue-50 text-blue-700",
   [REPORT_STATUSES.DRAFT]: "bg-amber-50 text-amber-700",
   [REPORT_STATUSES.FINALIZED_SUBJECT]: "bg-emerald-100 text-emerald-700",
+  [REPORT_STATUSES.DISTRIBUTED]: "bg-blue-100 text-blue-700",
   [REPORT_STATUSES.REOPENED]: "bg-violet-100 text-violet-700",
   [REPORT_STATUSES.ERROR]: "bg-red-100 text-red-700",
 };
@@ -17,6 +18,7 @@ const icons = {
   [REPORT_STATUSES.GENERATING]: LoaderCircle,
   [REPORT_STATUSES.DRAFT]: CircleCheck,
   [REPORT_STATUSES.FINALIZED_SUBJECT]: CircleCheck,
+  [REPORT_STATUSES.DISTRIBUTED]: CircleCheck,
   [REPORT_STATUSES.REOPENED]: RotateCcw,
   [REPORT_STATUSES.ERROR]: CircleAlert,
 };

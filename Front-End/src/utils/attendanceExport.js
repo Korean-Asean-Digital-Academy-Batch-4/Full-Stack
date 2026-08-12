@@ -1,12 +1,13 @@
 import { statusLabels } from "../data/attendanceData.js";
+import { formatShortDate } from "./dateFormatter.js";
 
 function escapeCsv(value) {
   const text = String(value ?? "");
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-export function createAttendanceCsv(rows) {
-  const header = ["Nama Siswa", "NIS", "P1", "P2", "P3", "P4"];
+export function createAttendanceCsv(rows, meetings) {
+  const header = ["Nama Siswa", "NIS", ...meetings.map((meeting) => formatShortDate(meeting.date))];
   const body = rows.map((row) => [
     row.name,
     row.nis,

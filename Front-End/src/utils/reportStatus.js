@@ -5,6 +5,7 @@ export const reportStatusLabels = {
   [REPORT_STATUSES.GENERATING]: "Sedang Membuat...",
   [REPORT_STATUSES.DRAFT]: "Sudah Dibuat",
   [REPORT_STATUSES.FINALIZED_SUBJECT]: "Sudah Difinalisasi",
+  [REPORT_STATUSES.DISTRIBUTED]: "Sudah Didistribusikan",
   [REPORT_STATUSES.REOPENED]: "Dibuka Kembali",
   [REPORT_STATUSES.ERROR]: "Gagal Dibuat",
 };

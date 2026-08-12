@@ -1,4 +1,4 @@
-import { CircleAlert, PencilLine, RefreshCw } from "lucide-react";
+import { CheckCheck, CircleAlert, PencilLine, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import AttendanceEmptyState from "../../components/attendance/AttendanceEmptyState";
 import AttendanceFilters from "../../components/attendance/AttendanceFilters";
@@ -83,7 +83,7 @@ export default function TeacherAttendancePage() {
       setStatuses(nextStatuses);
       setOriginalStatuses(nextStatuses);
       setSaved(Boolean(result.savedRecord));
-      setDirty(false);
+      setDirty(!result.savedRecord);
       setCorrectionMode(false);
       setState(result.students.length ? "loaded" : "empty");
     } catch {
@@ -95,6 +95,15 @@ export default function TeacherAttendancePage() {
   const handleStatusChange = (studentId, status) => {
     setStatuses((current) => ({ ...current, [studentId]: status }));
     setDirty(true);
+  };
+
+  const handleMarkAllPresent = () => {
+    setStatuses(Object.fromEntries(data.students.map((student) => [student.id, "PRESENT"])));
+    setDirty(true);
+    setToast({
+      type: "success",
+      message: "Semua siswa ditandai Hadir. Silakan ubah siswa yang Izin, Sakit, atau Alpa sebelum menyimpan.",
+    });
   };
 
   const focusFirstIncomplete = (studentId) => {
@@ -176,6 +185,7 @@ export default function TeacherAttendancePage() {
   };
 
   const handleDownload = () => {
+    const meetings = [...data.meetings, { id: "selected-date", date: data.currentDate }];
     const rows = data.students.map((student) => ({
       name: student.name,
       nis: student.nis,
@@ -183,7 +193,7 @@ export default function TeacherAttendancePage() {
     }));
     const className = selectedAssignment.name.replaceAll(" ", "-");
     const subjectName = selectedAssignment.subjectName.toLowerCase().replaceAll(" ", "-");
-    downloadAttendanceCsv(rows, `rekap-presensi-${className}-${subjectName}.csv`);
+    downloadAttendanceCsv(rows, meetings, `rekap-presensi-${className}-${subjectName}.csv`);
     setToast({ type: "success", message: "Rekap presensi berhasil diunduh." });
   };
 
@@ -227,7 +237,18 @@ export default function TeacherAttendancePage() {
 
           {loaded && data.students.length > 0 && (
             <>
-              <h1 className="mb-6 text-2xl font-bold tracking-[-0.035em] text-[#20232D]">Lembar Presensi Siswa</h1>
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#20232D]">Lembar Presensi Siswa</h1>
+                <Button
+                  variant="success"
+                  onClick={handleMarkAllPresent}
+                  disabled={saving || (saved && !correctionMode)}
+                  className="h-10"
+                  title={saved && !correctionMode ? "Klik Edit Presensi terlebih dahulu untuk mengubah data yang sudah disimpan" : "Tandai seluruh siswa Hadir, lalu ubah pengecualian bila diperlukan"}
+                >
+                  <CheckCheck aria-hidden="true" className="h-4 w-4" /> Hadir Semua
+                </Button>
+              </div>
               <AttendanceTable
                 data={data}
                 statuses={statuses}

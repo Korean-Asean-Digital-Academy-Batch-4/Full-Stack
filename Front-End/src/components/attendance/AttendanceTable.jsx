@@ -20,14 +20,12 @@ export default function AttendanceTable({
                 Nama Siswa
               </th>
               {data.meetings.map((meeting) => (
-                <th key={meeting.number} scope="col" className="min-w-[105px] px-3 py-3 text-center font-semibold">
-                  <span className="block">P{meeting.number}</span>
-                  <span className="block text-xs font-normal text-[#7A8090]">{formatShortDate(meeting.date)}</span>
+                <th key={meeting.id} scope="col" className="min-w-[120px] px-3 py-4 text-center font-semibold">
+                  <span className="block">{formatShortDate(meeting.date)}</span>
                 </th>
               ))}
               <th scope="col" className="min-w-[220px] px-3 py-3 text-center font-semibold text-[#0756D9]">
-                <span className="block">P4</span>
-                <span className="block text-xs font-normal">Hari Ini</span>
+                <span className="block">{formatShortDate(data.currentDate)}</span>
               </th>
             </tr>
           </thead>
@@ -44,7 +42,7 @@ export default function AttendanceTable({
                 {data.meetings.map((meeting, index) => {
                   const status = student.history[index];
                   return (
-                    <td key={`${student.id}-${meeting.number}`} className="px-3 py-3 text-center">
+                    <td key={`${student.id}-${meeting.id}`} className="px-3 py-3 text-center">
                       {status ? <AttendanceStatusBadge status={status} /> : null}
                     </td>
                   );

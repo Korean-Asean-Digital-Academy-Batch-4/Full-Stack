@@ -30,7 +30,8 @@ export async function getHomeroomWorkspace(classId) {
 }
 
 function reportStatus(value) {
-  if (value === "Finalized" || value === "Distributed") return "FINALIZED_SUBJECT";
+  if (value === "Distributed") return "DISTRIBUTED";
+  if (value === "Finalized") return "FINALIZED_SUBJECT";
   if (value === "Draft") return "DRAFT";
   return "NOT_CREATED";
 }
@@ -54,6 +55,7 @@ export async function getHomeroomReportStudents(classId) {
         avatarColor: ["blue", "purple", "orange", "teal"][index % 4],
         finalGrade: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)) : null,
         reportStatus: reportStatus(report?.status),
+        backendReportStatus: report?.status || null,
         reportId: report?.id || null,
       };
     }),

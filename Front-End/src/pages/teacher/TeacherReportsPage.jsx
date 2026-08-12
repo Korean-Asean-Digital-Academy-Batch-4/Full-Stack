@@ -1,4 +1,4 @@
-import { CircleAlert, RefreshCw } from "lucide-react";
+import { CircleAlert, RefreshCw, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import BulkGenerateButton from "../../components/reports/BulkGenerateButton";
 import GenerateProgressModal from "../../components/reports/GenerateProgressModal";
@@ -8,10 +8,11 @@ import ReportFilters from "../../components/reports/ReportFilters";
 import ReportPageHeader from "../../components/reports/ReportPageHeader";
 import ReportStudentTable from "../../components/reports/ReportStudentTable";
 import Button from "../../components/ui/Button";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Spinner from "../../components/ui/Spinner";
 import Toast from "../../components/ui/Toast";
 import { REPORT_STATUSES } from "../../data/reportData";
-import { generateAllHomeroomReports, generateHomeroomStudentReport, getHomeroomReportStudents } from "../../services/homeroomService";
+import { distributeHomeroomReports, generateAllHomeroomReports, generateHomeroomStudentReport, getHomeroomReportStudents } from "../../services/homeroomService";
 import { getStoredUser } from "../../stores/authStore";
 import { canGenerateReport } from "../../utils/reportStatus";
 import { getActiveHomeroomClassId } from "../../utils/teacherPermissions";
@@ -44,6 +45,9 @@ export default function TeacherReportsPage() {
   const [generatingId, setGeneratingId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [bulkResult, setBulkResult] = useState(null);
+  const [distributeOpen, setDistributeOpen] = useState(false);
+  const [distributing, setDistributing] = useState(false);
+  const [distributeError, setDistributeError] = useState("");
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -54,6 +58,10 @@ export default function TeacherReportsPage() {
 
   const eligibleStudents = useMemo(
     () => (data?.students || []).filter((student) => student.finalGrade != null && canGenerateReport(student.reportStatus)),
+    [data?.students],
+  );
+  const distributableStudents = useMemo(
+    () => (data?.students || []).filter((student) => student.backendReportStatus === "Finalized"),
     [data?.students],
   );
 
@@ -110,6 +118,17 @@ export default function TeacherReportsPage() {
   const cancelBulk = () => setProgress(null);
   const retryFailed = () => setBulkResult(null);
 
+  const distributeAll = async () => {
+    setDistributing(true); setDistributeError("");
+    try {
+      const result = await distributeHomeroomReports(filters.classId);
+      setDistributeOpen(false);
+      await loadReports();
+      setToast({ type: "success", message: `${result.distributedCount} rapor berhasil didistribusikan dan dapat dilihat siswa.` });
+    } catch (error) { setDistributeError(error.message || "Rapor belum dapat didistribusikan."); }
+    finally { setDistributing(false); }
+  };
+
   return (
     <div className="px-4 py-8 sm:px-7 lg:px-10">
       <div className="mx-auto max-w-[1120px]">
@@ -125,13 +144,14 @@ export default function TeacherReportsPage() {
           <section className="mt-7 overflow-hidden rounded-2xl border border-[#E4E8F1] bg-white shadow-soft">
             <div className="flex flex-col gap-2 border-b border-[#E8EBF2] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold text-[#202838]">Daftar Status Rapor Siswa</h2><p className="mt-1 text-xs text-[#64748B]">{data.assignment.name} · {data.assignment.subjectName}</p></div><span className="text-xs text-[#64748B]">{data.students.length} siswa</span></div>
             <ReportStudentTable students={data.students} assignmentId={data.assignment.id} generatingId={generatingId} onGenerate={generateOne} />
-            <footer className="flex flex-col gap-3 border-t border-[#E8EBF2] bg-[#FBFCFE] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><p className="max-w-xl text-xs leading-5 text-[#64748B]">Generate otomatis hanya mengompilasi nilai resmi, bobot, presensi, dan topik materi. Sistem tidak mengubah atau memfinalisasi nilai.</p><BulkGenerateButton disabled={!eligibleStudents.length || Boolean(progress)} onClick={() => generateBulk()} /></footer>
+            <footer className="flex flex-col gap-3 border-t border-[#E8EBF2] bg-[#FBFCFE] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><p className="max-w-xl text-xs leading-5 text-[#64748B]">Generate otomatis hanya mengompilasi nilai resmi, bobot, presensi, dan topik materi. Distribusi mengirim sekaligus semua rapor berstatus Finalized kepada siswa.</p><div className="flex flex-col gap-2 sm:flex-row"><Button variant="secondary" onClick={() => { setDistributeError(""); setDistributeOpen(true); }} disabled={!distributableStudents.length || Boolean(progress)} title={distributableStudents.length ? `Distribusikan ${distributableStudents.length} rapor yang sudah difinalisasi` : "Belum ada rapor Finalized yang dapat didistribusikan"} className="h-10"><Send aria-hidden="true" className="h-4 w-4" /> Distribusikan Semua ({distributableStudents.length})</Button><BulkGenerateButton disabled={!eligibleStudents.length || Boolean(progress)} onClick={() => generateBulk()} /></div></footer>
           </section>
         )}
       </div>
 
       <GenerateProgressModal open={Boolean(progress)} progress={progress || { processed: 0, total: 0 }} onCancel={cancelBulk} />
       <GenerateSuccessModal result={bulkResult} onClose={() => setBulkResult(null)} onRetry={retryFailed} />
+      <ConfirmDialog open={distributeOpen} onClose={() => !distributing && setDistributeOpen(false)} title="Distribusikan Semua Rapor?" description={`${distributableStudents.length} rapor berstatus Finalized akan langsung tersedia pada akun masing-masing siswa. Rapor Draft dan yang belum dibuat tidak akan ikut.`} confirmLabel="Distribusikan Semua" confirmVariant="primary" onConfirm={distributeAll} loading={distributing} error={distributeError} />
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
