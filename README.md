@@ -97,9 +97,9 @@ yang sudah digabungkan ke project ini sampai 12 Agustus 2026.
    Administrator juga dapat membuat akun Guru/Siswa secara manual. Nomor hasil
    pembuatan akun kini selalu berurutan dan tidak lagi menampilkan UUID sebagai nomor.
 3. **Pengelolaan dan penghapusan data Administrator.** Ditambahkan aksi hapus dengan
-   konfirmasi pada database Guru, Siswa, Presensi, Mata Pelajaran, Nilai, Rapor, serta
-   pengelolaan kelas/penugasan. Backend memvalidasi dependensi agar penghapusan tidak
-   meninggalkan data akademik yatim.
+   konfirmasi pada database Siswa, Presensi, Mata Pelajaran, Nilai, Rapor, serta
+   pengelolaan kelas/penugasan. Aksi hapus pada Database Guru kemudian dinonaktifkan
+   dari UI karena akun pengajar dapat memiliki nilai, presensi, dan riwayat rapor.
 4. **Sinkronisasi tanggal presensi.** Pemilihan tanggal kalender tidak lagi mundur satu
    hari akibat konversi UTC. Kolom presensi ditampilkan tepat di bawah tanggalnya dan
    label pertemuan `P1/P2/P4` dihilangkan agar tabel lebih jelas.
@@ -128,13 +128,19 @@ yang sudah digabungkan ke project ini sampai 12 Agustus 2026.
     nilai setiap mata pelajaran, KKM, dan rekap Hadir/Izin/Sakit/Alpa dari Supabase.
     AI hanya mengisi editor; catatan tetap harus ditinjau dan disimpan wali kelas.
     Jika layanan AI gagal, aplikasi membuat draf lokal berbasis data yang sama.
+13. **Konsistensi nilai siswa dan proteksi data Guru.** Ringkasan nilai di dashboard
+    dan halaman Nilai kini memakai normalisasi yang sama; komponen kosong tampil
+    sebagai **Belum lengkap**, bukan progress penuh atau nilai nol. Query nilai juga
+    dibatasi berdasarkan kelas agar tidak tertukar dengan kelas lain. Footer status
+    **Nilai Tersimpan** pada tampilan read-only wali kelas dan ikon delete di DB Guru
+    telah dihilangkan.
 
 ### Verifikasi update terkini
 
 - Audit skema Supabase: 15 tabel tersedia, RLS aktif, tidak ada kolom atau indeks wajib
   yang hilang, dan tidak ada ketidaksesuaian tipe.
 - Smoke test backend: autentikasi, endpoint Admin, Guru, Wali Kelas, dan Siswa lulus.
-- Frontend: 15 pengujian kontrak lulus dan build produksi Vite berhasil.
+- Frontend: 16 pengujian kontrak lulus dan build produksi Vite berhasil.
 - Endpoint draf AI telah diuji sebagai wali kelas dan mengembalikan catatan berdasarkan
   nilai serta kehadiran tanpa menyimpan data otomatis.
 

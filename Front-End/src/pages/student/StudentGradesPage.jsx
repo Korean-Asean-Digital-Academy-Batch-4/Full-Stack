@@ -99,8 +99,8 @@ export default function StudentGradesPage() {
                       <span className="block font-bold text-[#20232D]">{subject.subject}</span>
                       <span className="mt-1 block text-xs text-[#697184]">
                         Rata-rata:{" "}
-                        <span className={subject.badgeTone === "green" ? "rounded bg-emerald-50 px-2 py-1 font-medium text-emerald-700" : "rounded bg-blue-50 px-2 py-1 font-medium text-[#0756D9]"}>
-                          {subject.average.toFixed(1)}
+                        <span className={subject.complete ? "rounded bg-emerald-50 px-2 py-1 font-medium text-emerald-700" : "rounded bg-slate-100 px-2 py-1 font-medium text-slate-600"}>
+                          {subject.average == null ? "Belum lengkap" : subject.average.toFixed(1)}
                         </span>
                       </span>
                     </span>

@@ -4,7 +4,6 @@ import GradeActionBar from "./GradeActionBar";
 import GradeInputCell from "./GradeInputCell";
 import GradeStudentCell from "./GradeStudentCell";
 import GradeTableHeader from "./GradeTableHeader";
-import GradeReadOnlyStatus from "./GradeReadOnlyStatus";
 
 export default function GradeTable({
   students,
@@ -78,7 +77,7 @@ export default function GradeTable({
           </tbody>
         </table>
       </div>
-      {readOnly ? <GradeReadOnlyStatus /> : <GradeActionBar
+      {!readOnly && <GradeActionBar
         isEditing={isEditing}
         isSaving={isSaving}
         isDirty={isDirty}

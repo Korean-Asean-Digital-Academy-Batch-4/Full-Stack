@@ -6,6 +6,7 @@ import { isValidGradePayload, validateGradeValue } from "../src/utils/gradeValid
 import { MAX_IMPORT_FILE_SIZE, validateImportFile } from "../src/utils/importFile.js";
 import { isReportFinalizedForPeriod } from "../src/utils/reportFinalization.js";
 import { normalizeIsoDate } from "../src/utils/dateFormatter.js";
+import { groupStudentGradeRows } from "../src/utils/studentGrades.js";
 import {
   canCreateReport,
   canManageGrades,
@@ -39,6 +40,23 @@ test("nilai kosong tetap dianggap belum lengkap, bukan nol", () => {
   const scores = Object.fromEntries(assessmentComponents.map((component) => [component.id, 80]));
   scores.UTS = null;
   assert.equal(calculateFinalGrade(scores, assessmentComponents), null);
+});
+
+test("ringkasan siswa tidak membuat progress nilai dari komponen yang masih kosong", () => {
+  const rows = assessmentComponents.map((component) => ({
+    subject_id: "BIO-X",
+    subject_name: "Biologi",
+    grade_level: "X",
+    kkm: 65,
+    component_code: component.id,
+    weight_percent: component.weight,
+    topic: null,
+    score: null,
+  }));
+  const [subject] = groupStudentGradeRows(rows);
+  assert.equal(subject.complete, false);
+  assert.equal(subject.average, null);
+  assert.equal(subject.score, null);
 });
 
 test("perhitungan nilai akhir menggunakan bobot kontrak", () => {

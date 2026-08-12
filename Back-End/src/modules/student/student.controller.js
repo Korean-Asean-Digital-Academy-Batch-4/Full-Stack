@@ -16,7 +16,8 @@ async function getMyGrades(req, res) {
      CROSS JOIN assessment_components ac
      LEFT JOIN assessment_topics at
        ON at.class_id = cs.class_id AND at.subject_id = sub.id AND at.component_id = ac.id
-     LEFT JOIN grades g ON g.subject_id = sub.id AND g.student_id = cs.student_id AND g.component_id = ac.id
+     LEFT JOIN grades g ON g.class_id = cs.class_id AND g.subject_id = sub.id
+       AND g.student_id = cs.student_id AND g.component_id = ac.id
      WHERE cs.student_id = $1
      ORDER BY sub.name, ac.sort_order`,
     [studentId]

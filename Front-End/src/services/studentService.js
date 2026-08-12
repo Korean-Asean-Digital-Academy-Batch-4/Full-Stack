@@ -1,25 +1,11 @@
 import { getStoredUser } from "../stores/authStore";
+import { groupStudentGradeRows } from "../utils/studentGrades";
 import { api, downloadBlob } from "./apiClient";
-
-const COMPONENT_NAMES = { T1: "Tugas 1", T2: "Tugas 2", T3: "Tugas 3", U1: "Ulangan Harian 1", U2: "Ulangan Harian 2", U3: "Ulangan Harian 3", UTS: "Ujian Tengah Semester", UAS: "Ujian Akhir Semester" };
 
 function requireCurrentStudent() {
   const user = getStoredUser();
   if (!user || user.role !== "student") throw new Error("UNAUTHORIZED_STUDENT_ACCESS");
   return user;
-}
-
-function groupGradeRows(rows) {
-  const subjects = new Map();
-  rows.forEach((row) => {
-    if (!subjects.has(row.subject_id)) subjects.set(row.subject_id, { id: row.subject_id, subject: `${row.subject_name} ${row.grade_level}`, name: `${row.subject_name} ${row.grade_level}`, kkm: Number(row.kkm), badgeTone: "blue", components: [] });
-    subjects.get(row.subject_id).components.push({ id: row.component_code, name: COMPONENT_NAMES[row.component_code] || row.component_code, topic: row.topic || null, score: row.score == null ? null : Number(row.score), weight: Number(row.weight_percent) });
-  });
-  return [...subjects.values()].map((subject) => {
-    const complete = subject.components.every((component) => component.score != null);
-    const average = complete ? subject.components.reduce((sum, component) => sum + component.score * component.weight, 0) / 100 : null;
-    return { ...subject, average: average == null ? 0 : average, score: average == null ? null : Number(average.toFixed(2)) };
-  });
 }
 
 function normalizeAttendance(items) {
@@ -33,12 +19,12 @@ function normalizeAttendance(items) {
 export async function getStudentDashboard() {
   requireCurrentStudent();
   const [gradeRows, attendanceRows] = await Promise.all([api.get("/student/grades"), api.get("/student/attendance")]);
-  const subjects = groupGradeRows(gradeRows).map((subject) => ({ id: subject.id, name: subject.name, score: subject.score, status: subject.score == null ? "Belum lengkap" : "Aktif", icon: "book", accent: "blue" }));
+  const subjects = groupStudentGradeRows(gradeRows).map((subject) => ({ id: subject.id, name: subject.name, score: subject.score, status: subject.score == null ? "Belum lengkap" : "Aktif", icon: "book", accent: "blue" }));
   return { attendancePercentage: normalizeAttendance(attendanceRows).overallPercentage, subjects };
 }
 
 export async function getStudentAiInsight() { requireCurrentStudent(); return api.post("/student/ai-insight"); }
-export async function getStudentGrades() { requireCurrentStudent(); return groupGradeRows(await api.get("/student/grades")); }
+export async function getStudentGrades() { requireCurrentStudent(); return groupStudentGradeRows(await api.get("/student/grades")); }
 
 export async function getStudentReport() {
   requireCurrentStudent();
@@ -47,7 +33,7 @@ export async function getStudentReport() {
   catch (error) { if (error?.status === 404) return { status: "Unavailable", message: "Rapor belum tersedia" }; throw error; }
   if (report.status !== "Distributed") return report;
   const [gradeRows, attendanceRows] = await Promise.all([api.get("/student/grades"), api.get("/student/attendance")]);
-  const subjects = groupGradeRows(gradeRows).map((subject) => ({ id: subject.id, name: subject.name, score: subject.score }));
+  const subjects = groupStudentGradeRows(gradeRows).map((subject) => ({ id: subject.id, name: subject.name, score: subject.score }));
   const scored = subjects.map((subject) => subject.score).filter(Number.isFinite);
   return { ...report, subjects, average: scored.length ? Number((scored.reduce((sum, score) => sum + score, 0) / scored.length).toFixed(2)) : 0, attendancePercentage: normalizeAttendance(attendanceRows).overallPercentage, teacherNote: report.general_note || "-" };
 }
