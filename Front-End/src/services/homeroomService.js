@@ -87,3 +87,4 @@ export async function downloadHomeroomStudentReport(studentId) {
 export async function finalizeHomeroomReports(classId) { assertHomeroomClassAccess(classId); return api.post(`/homeroom/classes/${classId}/finalize`); }
 export async function distributeHomeroomReports(classId) { assertHomeroomClassAccess(classId); return api.post(`/homeroom/classes/${classId}/distribute`); }
 export async function saveHomeroomReportNote(studentId, note) { return api.patch(`/homeroom/report-cards/${studentId}/note`, { note }); }
+export async function generateHomeroomReportNoteDraft(studentId) { return api.post(`/homeroom/report-cards/${studentId}/note-draft`); }

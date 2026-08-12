@@ -45,8 +45,8 @@ export default function GeneratedAccountTable({ entityType, rows, title, subtitl
 
   const downloadMaskedResults = () => {
     const header = ["No", config.nameLabel, config.identityLabel, "Generated Password", "Status"];
-    const csvRows = rows.map((row) => [
-      row.id,
+    const csvRows = rows.map((row, index) => [
+      index + 1,
       row.name,
       row[config.identityKey],
       row.password || "-",
@@ -98,11 +98,12 @@ export default function GeneratedAccountTable({ entityType, rows, title, subtitl
               </tr>
             </thead>
             <tbody className="divide-y divide-[#D7DCE7] text-sm text-[#20232D]">
-              {visibleRows.map((row) => {
+              {visibleRows.map((row, index) => {
                 const status = getRowStatus(row);
+                const rowNumber = ((page - 1) * PAGE_SIZE) + index + 1;
                 return (
                   <tr key={row.id}>
-                    <td className="px-5 py-3.5 text-[#555D6E]">{row.id}</td>
+                    <td className="px-5 py-3.5 text-[#555D6E]">{rowNumber}</td>
                     <td className="px-4 py-3.5 font-medium">{row.name}</td>
                     <td className="px-4 py-3.5 text-[#555D6E]">{row[config.identityKey]}</td>
                     <td className="px-4 py-3.5">

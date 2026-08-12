@@ -18,6 +18,10 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
   if (err.code === '23503') {
     return fail(res, 400, 'Referensi data tidak valid', { detail: err.detail });
   }
+  // Nilai melebihi batas panjang kolom Postgres
+  if (err.code === '22001') {
+    return fail(res, 400, 'Teks yang disimpan melebihi batas yang diizinkan');
+  }
 
   console.error(err); // eslint-disable-line no-console
   return fail(res, 500, 'Terjadi kesalahan pada server');

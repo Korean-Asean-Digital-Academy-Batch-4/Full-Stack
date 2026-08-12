@@ -76,6 +76,7 @@ const EXPECTED_TYPES = new Map([
   ['assessment_components.weight_percent', ['numeric']],
   ['grades.score', ['numeric']],
   ['attendance_sessions.session_date', ['date']],
+  ['report_cards.general_note', ['text']],
 ]);
 
 async function main() {

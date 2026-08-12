@@ -60,6 +60,8 @@ src/
     completeness.service.js  cek kelengkapan nilai per mapel (dipakai homeroom + finalisasi)
     reportCardLock.service.js kunci nilai/presensi setelah rapor Final (§9)
     aiInsight.service.js      panggil Gemini API untuk tombol Suggestion (§8.5)
+    gemini.service.js         klien Gemini khusus draf catatan rapor
+    reportNoteDraft.service.js rangkum nilai dan kehadiran untuk draf AI wali kelas
   modules/
     auth/        login dan ganti password mandiri
     admin/        seluruh /api/admin/*
@@ -85,6 +87,10 @@ scripts/seed-admin.js   buat akun Administrator pertama (tidak ada endpoint sign
 - **AI Insight tidak pernah ditulis ke DB** — `aiInsight.service.js` murni baca data lalu
   panggil Gemini API; kegagalan (timeout/API error) dikembalikan sebagai `503`, tidak
   melempar 500 supaya jelas ini bukan bug backend (§8.6 poin 7).
+- **Draf AI catatan rapor tetap memerlukan persetujuan wali kelas.** Endpoint
+  `POST /api/homeroom/report-cards/:studentId/note-draft` hanya membaca nilai, KKM, dan
+  kehadiran siswa yang berada di kelas wali. Hasil Gemini dikembalikan ke editor dan tidak
+  disimpan maupun difinalisasi secara otomatis.
 - **Templat komponen nilai (T1-T3, U1-U3, UTS, UAS) sudah di-seed lewat `schema.sql`.**
   Administrator dapat membaca dan memperbarui bobotnya melalui
   `GET/PUT /api/admin/assessment-components`; backend menolak bila jumlah komponen

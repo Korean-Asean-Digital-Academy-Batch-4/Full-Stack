@@ -166,9 +166,9 @@ export default function TeacherAttendancePage() {
       setCorrectionReason("");
       setState("loaded");
       setToast({ type: "success", message: "Presensi kelas berhasil disimpan." });
-    } catch {
+    } catch (error) {
       setState("loaded");
-      setToast({ type: "error", message: "Presensi gagal disimpan. Silakan coba kembali." });
+      setToast({ type: "error", message: error.message || "Presensi gagal disimpan. Silakan coba kembali." });
     }
   };
 

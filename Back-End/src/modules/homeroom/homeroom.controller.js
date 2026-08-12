@@ -1,9 +1,10 @@
 const { pool, withTransaction } = require('../../db/pool');
-const { ok } = require('../../utils/response');
+const { ok, fail } = require('../../utils/response');
 const AppError = require('../../utils/AppError');
 const { getClassCompleteness } = require('../../services/completeness.service');
 const gradesService = require('../../services/grades.service');
 const reportPdfService = require('../../services/reportPdf.service');
+const reportNoteDraftService = require('../../services/reportNoteDraft.service');
 
 function assertHomeroomOfClass(req, classId) {
   if (req.user.role === 'admin') return;
@@ -160,6 +161,27 @@ async function updateReportCardNote(req, res) {
   return ok(res, updated[0], 'Catatan rapor berhasil disimpan');
 }
 
+async function generateReportCardNoteDraft(req, res) {
+  const { studentId } = req.params;
+  const rows = await findReportCardRows(studentId);
+  if (!rows.length) throw AppError.notFound('Rapor belum tersedia untuk siswa ini');
+  const report = rows[0];
+  assertHomeroomOfClass(req, report.class_id);
+  if (report.status !== 'Draft') throw AppError.forbidden('Draf AI hanya dapat dibuat sebelum rapor difinalisasi');
+
+  try {
+    const draft = await reportNoteDraftService.generateReportNoteDraft({
+      classId: report.class_id,
+      studentId,
+      studentName: report.student_name,
+    });
+    return ok(res, draft, 'Draf catatan berdasarkan nilai dan kehadiran berhasil dibuat');
+  } catch (error) {
+    if (error.isAiFailure) return fail(res, 503, 'AI belum dapat membuat draf. Silakan coba lagi.');
+    throw error;
+  }
+}
+
 async function finalizeStudentReport(req, res) {
   const { studentId } = req.params;
   const rows = await findReportCardRows(studentId);
@@ -260,6 +282,7 @@ async function findReportCardRows(studentId) {
 
 module.exports = {
   getClassOverview, getClassCompletenessHandler, getSubjectGrades, getReportCard, updateReportCardNote,
+  generateReportCardNoteDraft,
   generateStudentReport, generateAllReports, finalizeStudentReport,
   finalizeClass, distributeClass, downloadReportCard,
 };

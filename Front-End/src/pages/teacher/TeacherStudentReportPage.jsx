@@ -8,9 +8,12 @@ import Toast from "../../components/ui/Toast";
 import {
   downloadHomeroomStudentReport,
   finalizeHomeroomStudentReport,
+  generateHomeroomReportNoteDraft,
   getHomeroomStudentReport,
   saveHomeroomReportNote,
 } from "../../services/homeroomService";
+
+const REPORT_NOTE_MAX_LENGTH = 2000;
 
 export default function TeacherStudentReportPage() {
   const { studentId } = useParams();
@@ -40,6 +43,10 @@ export default function TeacherStudentReportPage() {
   const incomplete = completeSubjects.length !== (report?.subjects || []).length;
 
   const saveNote = async () => {
+    if (note.length > REPORT_NOTE_MAX_LENGTH) {
+      setToast({ type: "error", message: `Catatan maksimal ${REPORT_NOTE_MAX_LENGTH.toLocaleString("id-ID")} karakter.` });
+      return;
+    }
     setAction("save");
     try {
       const updated = await saveHomeroomReportNote(studentId, note.trim());
@@ -50,9 +57,23 @@ export default function TeacherStudentReportPage() {
     finally { setAction(""); }
   };
 
-  const makeDraft = () => {
+  const makeLocalDraft = () => {
     const strongSubjects = completeSubjects.filter((item) => Number(item.final_score) >= Number(item.kkm)).map((item) => item.name);
-    setNote(`${report.student_name} menunjukkan perkembangan belajar yang ${report.average_score >= 80 ? "sangat baik" : "baik"}. ${strongSubjects.length ? `Capaian menonjol terlihat pada ${strongSubjects.join(", ")}. ` : ""}Kehadiran tercatat ${report.attendance.attended} dari ${report.attendance.total} pertemuan. Pertahankan konsistensi belajar dan tingkatkan materi yang masih perlu diperkuat.`);
+    return `${report.student_name} menunjukkan perkembangan belajar yang ${report.average_score >= 80 ? "sangat baik" : "baik"}. ${strongSubjects.length ? `Capaian menonjol terlihat pada ${strongSubjects.join(", ")}. ` : ""}Kehadiran tercatat ${report.attendance.attended} dari ${report.attendance.total} pertemuan. Pertahankan konsistensi belajar dan tingkatkan materi yang masih perlu diperkuat.`;
+  };
+
+  const makeDraft = async () => {
+    setAction("draft");
+    try {
+      const draft = await generateHomeroomReportNoteDraft(studentId);
+      setNote(String(draft.note || "").slice(0, REPORT_NOTE_MAX_LENGTH));
+      setToast({ type: "success", message: "Draf AI berdasarkan nilai dan kehadiran berhasil dibuat. Silakan ditinjau sebelum disimpan." });
+    } catch {
+      setNote(makeLocalDraft().slice(0, REPORT_NOTE_MAX_LENGTH));
+      setToast({ type: "error", message: "Layanan AI belum tersedia. Draf cadangan berdasarkan nilai dan kehadiran telah dibuat." });
+    } finally {
+      setAction("");
+    }
   };
 
   const finalize = async () => {
@@ -82,6 +103,6 @@ export default function TeacherStudentReportPage() {
     {incomplete && <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Finalisasi terkunci karena masih ada nilai mata pelajaran yang belum lengkap.</p>}
     <section className="mt-7 grid gap-4 lg:grid-cols-[0.65fr_1.35fr]"><div className="space-y-4"><article className="rounded-2xl border bg-white p-6"><p className="text-xs font-semibold uppercase text-[#697184]">Rata-rata Nilai</p><p className="mt-7 text-5xl font-medium text-[#0756D9]">{report.average_score ?? "–"}</p></article><article className="rounded-2xl border bg-white p-6"><div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase text-[#697184]">Kehadiran</p><CalendarCheck className="h-5 w-5 text-emerald-500" /></div><p className="mt-7 text-4xl">{report.attendance_percentage}%</p><div className="mt-3 h-1.5 rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${report.attendance_percentage}%` }} /></div></article></div><article className="rounded-2xl border bg-white p-6"><h2 className="font-bold">Rangkuman Nilai Mapel</h2><div className="mt-5 divide-y">{report.subjects.map((subject) => <div key={subject.id} className="flex justify-between py-4 text-sm"><span>{subject.name}</span><span className={subject.final_score == null ? "text-amber-600" : "font-semibold text-[#0756D9]"}>{subject.final_score ?? "Belum lengkap"}</span></div>)}</div></article></section>
 
-    <section className="mt-6 overflow-hidden rounded-2xl border bg-white"><div className="h-1 bg-gradient-to-r from-violet-500 to-blue-500" /><div className="p-6"><div className="flex items-start justify-between"><div><h2 className="font-bold">Catatan Rapor</h2><p className="mt-1 text-xs text-[#697184]">Tuliskan catatan wali kelas untuk siswa.</p></div>{!finalized && <button type="button" onClick={makeDraft} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600"><Sparkles className="h-4 w-4" /> Buat Draf</button>}</div><textarea rows={7} value={note} onChange={(event) => setNote(event.target.value)} disabled={finalized} className="mt-5 w-full resize-none rounded-xl border bg-[#FBFCFF] p-4 text-sm leading-6 outline-none focus:border-[#0756D9] disabled:bg-slate-50" /><div className="mt-4 flex justify-end gap-3">{!finalized && <><Button variant="secondary" onClick={() => setNote(savedNote)} disabled={note === savedNote}>Batalkan Perubahan</Button><Button onClick={saveNote} loading={action === "save"} disabled={note === savedNote}><Save className="h-4 w-4" /> Simpan Catatan Rapor</Button></>}</div></div></section>
+    <section className="mt-6 overflow-hidden rounded-2xl border bg-white"><div className="h-1 bg-gradient-to-r from-violet-500 to-blue-500" /><div className="p-6"><div className="flex items-start justify-between"><div><h2 className="font-bold">Catatan Rapor</h2><p id="report-note-help" className="mt-1 text-xs text-[#697184]">Draf AI menggunakan nilai dan kehadiran siswa. Maksimal 2.000 karakter dan tetap perlu ditinjau wali kelas.</p></div>{!finalized && <button type="button" onClick={makeDraft} disabled={Boolean(action)} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"><Sparkles className={`h-4 w-4 ${action === "draft" ? "animate-pulse" : ""}`} /> {action === "draft" ? "Membuat Draf AI..." : "Buat Draf AI"}</button>}</div><textarea aria-describedby="report-note-help report-note-counter" rows={7} maxLength={REPORT_NOTE_MAX_LENGTH} value={note} onChange={(event) => setNote(event.target.value)} disabled={finalized} className="mt-5 w-full resize-none rounded-xl border bg-[#FBFCFF] p-4 text-sm leading-6 outline-none focus:border-[#0756D9] disabled:bg-slate-50" /><div id="report-note-counter" className={`mt-2 text-right text-xs font-medium ${note.length >= REPORT_NOTE_MAX_LENGTH ? "text-red-600" : note.length >= REPORT_NOTE_MAX_LENGTH * 0.9 ? "text-amber-600" : "text-[#697184]"}`}>{note.length.toLocaleString("id-ID")} / {REPORT_NOTE_MAX_LENGTH.toLocaleString("id-ID")} karakter</div><div className="mt-4 flex justify-end gap-3">{!finalized && <><Button variant="secondary" onClick={() => setNote(savedNote)} disabled={note === savedNote || Boolean(action)}>Batalkan Perubahan</Button><Button onClick={saveNote} loading={action === "save"} disabled={note === savedNote || note.length > REPORT_NOTE_MAX_LENGTH || Boolean(action)}><Save className="h-4 w-4" /> Simpan Catatan Rapor</Button></>}</div></div></section>
   </div><ConfirmDialog open={finalizeOpen} onClose={() => action !== "finalize" && setFinalizeOpen(false)} title="Finalisasi Rapor?" description="Setelah finalisasi, catatan terkunci dan rapor dapat diunduh. Periksa kembali seluruh nilai dan catatan." confirmLabel="Finalisasi" confirmVariant="primary" onConfirm={finalize} loading={action === "finalize"} error={actionError} /><Toast toast={toast} onClose={() => setToast(null)} /></main>;
 }

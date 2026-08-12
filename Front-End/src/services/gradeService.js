@@ -60,7 +60,7 @@ export async function getGradeSheet(filters) {
   const grades = {};
   rows.forEach((row) => {
     if (!studentMap.has(row.student_id)) {
-      studentMap.set(row.student_id, { id: row.student_id, name: row.student_name });
+      studentMap.set(row.student_id, { id: row.student_id, name: row.student_name, nis: row.nis });
     }
     grades[row.student_id] ||= {};
     grades[row.student_id][row.component_code] = row.score == null ? null : Number(row.score);
@@ -135,7 +135,7 @@ export async function getHomeroomSubjectGrades({ academicYear, semester, subject
   const students = new Map();
   const grades = {};
   result.items.forEach((row) => {
-    students.set(row.student_id, { id: row.student_id, name: row.student_name });
+    students.set(row.student_id, { id: row.student_id, name: row.student_name, nis: row.nis });
     grades[row.student_id] ||= {};
     grades[row.student_id][row.component_code] = row.score == null ? null : Number(row.score);
   });

@@ -13,6 +13,7 @@ router.get('/report-cards/:studentId', asyncHandler(ctrl.getReportCard));
 router.post('/classes/:classId/report-cards/:studentId/generate', asyncHandler(ctrl.generateStudentReport));
 router.post('/classes/:classId/report-cards/generate-all', asyncHandler(ctrl.generateAllReports));
 router.patch('/report-cards/:studentId/note', asyncHandler(ctrl.updateReportCardNote));
+router.post('/report-cards/:studentId/note-draft', asyncHandler(ctrl.generateReportCardNoteDraft));
 router.post('/report-cards/:studentId/finalize', asyncHandler(ctrl.finalizeStudentReport));
 router.post('/classes/:classId/finalize', asyncHandler(ctrl.finalizeClass));
 router.post('/classes/:classId/distribute', asyncHandler(ctrl.distributeClass));

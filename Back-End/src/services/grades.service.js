@@ -72,7 +72,7 @@ async function saveGrades({ classId, subjectId, entries, filledByTeacherId }) {
 // Selalu mengembalikan grid lengkap siswa × 8 komponen, walau belum pernah disimpan (score: null).
 async function getClassGrades(classId, subjectId) {
   const { rows } = await pool.query(
-    `SELECT cs.student_id, s.name AS student_name, ac.code AS component_code, g.score
+    `SELECT cs.student_id, s.name AS student_name, s.nis, ac.code AS component_code, g.score
      FROM class_students cs
      JOIN students s ON s.id = cs.student_id
      CROSS JOIN assessment_components ac

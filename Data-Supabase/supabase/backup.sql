@@ -197,7 +197,7 @@ CREATE TABLE public.report_cards (
     student_id uuid NOT NULL,
     semester_id uuid NOT NULL,
     status character varying(50) DEFAULT 'Draft'::character varying NOT NULL,
-    general_note character varying(50),
+    general_note text,
     finalized_by uuid,
     finalized_at timestamp with time zone,
     distributed_by uuid,

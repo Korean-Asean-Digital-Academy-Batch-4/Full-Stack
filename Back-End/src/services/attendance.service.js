@@ -72,16 +72,32 @@ async function updateRecords(sessionId, records) {
     }
   }
   return withTransaction(async (client) => {
+    const sessionResult = await client.query(
+      'SELECT class_id FROM attendance_sessions WHERE id = $1',
+      [sessionId],
+    );
+    if (!sessionResult.rowCount) throw AppError.notFound('Sesi presensi tidak ditemukan');
+    const studentIds = records.map((record) => record.studentId);
+    const enrolledResult = await client.query(
+      `SELECT student_id FROM class_students
+        WHERE class_id = $1 AND student_id = ANY($2::uuid[])`,
+      [sessionResult.rows[0].class_id, studentIds],
+    );
+    const enrolledIds = new Set(enrolledResult.rows.map((row) => row.student_id));
+    const invalidStudentId = studentIds.find((studentId) => !enrolledIds.has(studentId));
+    if (invalidStudentId) {
+      throw AppError.badRequest(`Siswa ${invalidStudentId} tidak terdaftar pada kelas sesi presensi ini`);
+    }
+
     let updatedCount = 0;
     for (const record of records) {
       const { rowCount } = await client.query(
-        `UPDATE attendance_records SET status = $1, updated_at = now()
-         WHERE session_id = $2 AND student_id = $3`,
-        [record.status, sessionId, record.studentId],
+        `INSERT INTO attendance_records (session_id, student_id, status)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (session_id, student_id)
+         DO UPDATE SET status = EXCLUDED.status, updated_at = now()`,
+        [sessionId, record.studentId, record.status],
       );
-      if (!rowCount) {
-        throw AppError.badRequest(`Siswa ${record.studentId} tidak terdaftar pada sesi presensi ini`);
-      }
       updatedCount += rowCount;
     }
     return { updatedCount };

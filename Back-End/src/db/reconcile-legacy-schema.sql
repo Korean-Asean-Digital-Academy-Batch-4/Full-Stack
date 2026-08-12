@@ -130,6 +130,8 @@ ALTER TABLE public.subjects ALTER COLUMN kkm TYPE NUMERIC(5,2)
   USING kkm::numeric(5,2);
 ALTER TABLE public.grades ALTER COLUMN score TYPE NUMERIC(5,2)
   USING score::numeric(5,2);
+ALTER TABLE public.report_cards ALTER COLUMN general_note TYPE TEXT
+  USING general_note::text;
 
 -- Default yang dibutuhkan seluruh endpoint create/import.
 ALTER TABLE public.administrators ALTER COLUMN id SET DEFAULT gen_random_uuid();
