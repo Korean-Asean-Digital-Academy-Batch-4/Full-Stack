@@ -32,6 +32,19 @@ export async function getStudentReport() {
   try { report = await api.get("/student/report-card"); }
   catch (error) { if (error?.status === 404) return { status: "Unavailable", message: "Rapor belum tersedia" }; throw error; }
   if (report.status !== "Distributed") return report;
+  if (report.snapshot_version && Array.isArray(report.subjects)) {
+    return {
+      ...report,
+      subjects: report.subjects.map((subject) => ({
+        id: subject.id,
+        name: subject.name,
+        score: subject.final_score == null ? null : Number(subject.final_score),
+      })),
+      average: report.average_score == null ? 0 : Number(report.average_score),
+      attendancePercentage: Number(report.attendance_percentage || 0),
+      teacherNote: report.general_note || "-",
+    };
+  }
   const [gradeRows, attendanceRows] = await Promise.all([api.get("/student/grades"), api.get("/student/attendance")]);
   const subjects = groupStudentGradeRows(gradeRows).map((subject) => ({ id: subject.id, name: subject.name, score: subject.score }));
   const scored = subjects.map((subject) => subject.score).filter(Number.isFinite);

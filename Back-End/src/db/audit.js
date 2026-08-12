@@ -17,7 +17,7 @@ const EXPECTED_SCHEMA = {
   grades: ['id', 'student_id', 'class_id', 'subject_id', 'component_id', 'score', 'filled_by_teacher_id', 'updated_at'],
   attendance_sessions: ['id', 'class_id', 'subject_id', 'teacher_id', 'session_date', 'created_at'],
   attendance_records: ['id', 'session_id', 'student_id', 'status', 'updated_at'],
-  report_cards: ['id', 'class_id', 'student_id', 'semester_id', 'status', 'general_note', 'finalized_by', 'finalized_at', 'distributed_by', 'distributed_at', 'created_at'],
+  report_cards: ['id', 'class_id', 'student_id', 'semester_id', 'status', 'general_note', 'snapshot_data', 'finalized_by', 'finalized_at', 'distributed_by', 'distributed_at', 'created_at'],
 };
 
 const EXPECTED_INDEXES = [
@@ -77,6 +77,7 @@ const EXPECTED_TYPES = new Map([
   ['grades.score', ['numeric']],
   ['attendance_sessions.session_date', ['date']],
   ['report_cards.general_note', ['text']],
+  ['report_cards.snapshot_data', ['jsonb']],
 ]);
 
 async function main() {

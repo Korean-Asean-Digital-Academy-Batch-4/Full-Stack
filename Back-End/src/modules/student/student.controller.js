@@ -4,6 +4,7 @@ const AppError = require('../../utils/AppError');
 const aiInsightService = require('../../services/aiInsight.service');
 const assessmentTopicsService = require('../../services/assessmentTopics.service');
 const reportPdfService = require('../../services/reportPdf.service');
+const reportSnapshotService = require('../../services/reportSnapshot.service');
 
 async function getMyGrades(req, res) {
   const studentId = req.user.sub;
@@ -79,18 +80,11 @@ async function getAiInsight(req, res) {
 
 async function getMyReportCard(req, res) {
   const studentId = req.user.sub;
-  const { rows } = await pool.query(
-    `SELECT rc.status, rc.general_note, rc.distributed_at, c.name AS class_name
-     FROM report_cards rc JOIN classes c ON c.id = rc.class_id
-     WHERE rc.student_id = $1 ORDER BY rc.created_at DESC LIMIT 1`,
-    [studentId]
-  );
-  if (!rows.length) throw AppError.notFound('Rapor belum tersedia');
-  const rc = rows[0];
-  if (rc.status !== 'Distributed') {
-    return ok(res, { status: rc.status, className: rc.class_name }, 'Rapor belum didistribusikan');
+  const report = await reportSnapshotService.getReportData({ studentId });
+  if (report.status !== 'Distributed') {
+    return ok(res, { status: report.status, className: report.class_name }, 'Rapor belum didistribusikan');
   }
-  return ok(res, rc);
+  return ok(res, report);
 }
 
 async function downloadMyReportCard(req, res) {

@@ -57,8 +57,9 @@ npm run dev
 Isi `DATABASE_URL`, `JWT_SECRET`, dan `GEMINI_API_KEY` di `Back-End/.env`.
 Untuk database Supabase existing yang sudah berisi tabel, jangan menjalankan
 migrasi ulang. Gunakan `npm run reconcile:schema` hanya bila audit menemukan
-struktur yang belum sesuai, lalu jalankan `npm run harden:security` dan audit
-ulang.
+struktur yang belum sesuai. Jalankan `npm run migrate:report-snapshot` untuk
+menambahkan penyimpanan snapshot rapor secara idempoten, lalu jalankan
+`npm run harden:security` dan audit ulang.
 
 Terminal kedua:
 
@@ -134,6 +135,12 @@ yang sudah digabungkan ke project ini sampai 12 Agustus 2026.
     dibatasi berdasarkan kelas agar tidak tertukar dengan kelas lain. Footer status
     **Nilai Tersimpan** pada tampilan read-only wali kelas dan ikon delete di DB Guru
     telah dihilangkan.
+14. **Snapshot rapor final yang immutable.** Saat finalisasi, backend menyimpan salinan
+    permanen identitas siswa/kelas/periode, catatan, nilai, bobot, topik, KKM, guru,
+    dan rekap kehadiran ke `report_cards.snapshot_data`. Tampilan wali kelas, siswa,
+    database Administrator, dan PDF membaca snapshot tersebut sehingga perubahan data
+    sumber setelah finalisasi tidak mengubah rapor yang sudah resmi. Finalisasi ulang
+    juga tidak dapat menimpa snapshot lama.
 
 ### Verifikasi update terkini
 
@@ -141,6 +148,8 @@ yang sudah digabungkan ke project ini sampai 12 Agustus 2026.
   yang hilang, dan tidak ada ketidaksesuaian tipe.
 - Smoke test backend: autentikasi, endpoint Admin, Guru, Wali Kelas, dan Siswa lulus.
 - Frontend: 16 pengujian kontrak lulus dan build produksi Vite berhasil.
+- Smoke test snapshot membuktikan perubahan nilai dan presensi sumber setelah finalisasi
+  tidak mengubah isi rapor final; seluruh perubahan data pengujian di-rollback.
 - Endpoint draf AI telah diuji sebagai wali kelas dan mengembalikan catatan berdasarkan
   nilai serta kehadiran tanpa menyimpan data otomatis.
 
@@ -148,7 +157,7 @@ yang sudah digabungkan ke project ini sampai 12 Agustus 2026.
 
 ```bash
 cd "Front-End" && npm test && npm run build
-cd "../Back-End" && npm run audit:db && npm run smoke
+cd "../Back-End" && npm run audit:db && npm run smoke && npm run smoke:report-snapshot
 ```
 
 Lihat [DEMO_GUIDE.md](./DEMO_GUIDE.md) untuk urutan demonstrasi dan checklist.

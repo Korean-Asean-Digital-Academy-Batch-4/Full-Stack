@@ -196,6 +196,7 @@ CREATE TABLE report_cards (
   semester_id     UUID NOT NULL REFERENCES semesters(id) ON DELETE RESTRICT,
   status          TEXT NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Finalized', 'Distributed')),
   general_note    TEXT,                          -- catatan umum Wali Kelas
+  snapshot_data   JSONB CHECK (snapshot_data IS NULL OR jsonb_typeof(snapshot_data) = 'object'),
   finalized_by    UUID REFERENCES teachers(id),
   finalized_at    TIMESTAMPTZ,
   distributed_by  UUID REFERENCES teachers(id),

@@ -5,6 +5,7 @@ const { getClassCompleteness } = require('../../services/completeness.service');
 const gradesService = require('../../services/grades.service');
 const reportPdfService = require('../../services/reportPdf.service');
 const reportNoteDraftService = require('../../services/reportNoteDraft.service');
+const reportSnapshotService = require('../../services/reportSnapshot.service');
 
 function assertHomeroomOfClass(req, classId) {
   if (req.user.role === 'admin') return;
@@ -67,44 +68,9 @@ async function getSubjectGrades(req, res) {
 
 async function getReportCard(req, res) {
   const { studentId } = req.params;
-  const rows = await findReportCardRows(studentId);
-  if (!rows.length) throw AppError.notFound('Rapor belum tersedia untuk siswa ini');
-  assertHomeroomOfClass(req, rows[0].class_id);
-  const [subjects, attendance] = await Promise.all([
-    pool.query(
-      `SELECT sub.id, sub.name, sub.kkm,
-              ROUND(SUM(g.score * ac.weight_percent) / 100.0, 2) AS final_score,
-              COUNT(*) FILTER (WHERE g.score IS NULL) AS missing_count,
-              COUNT(g.id)::int AS recorded_components
-         FROM class_subjects csub
-         JOIN subjects sub ON sub.id = csub.subject_id
-         LEFT JOIN grades g ON g.class_id = csub.class_id AND g.subject_id = sub.id AND g.student_id = $2
-         LEFT JOIN assessment_components ac ON ac.id = g.component_id
-        WHERE csub.class_id = $1
-        GROUP BY sub.id, sub.name, sub.kkm ORDER BY sub.name`,
-      [rows[0].class_id, studentId]
-    ),
-    pool.query(
-      `SELECT COUNT(ar.id)::int AS total,
-              COUNT(ar.id) FILTER (WHERE ar.status = 'Hadir')::int AS attended
-         FROM attendance_sessions ats
-         LEFT JOIN attendance_records ar ON ar.session_id = ats.id AND ar.student_id = $2
-        WHERE ats.class_id = $1`,
-      [rows[0].class_id, studentId]
-    ),
-  ]);
-  const scored = subjects.rows.filter((item) => item.final_score != null && Number(item.recorded_components) === 8 && Number(item.missing_count) === 0);
-  const average = scored.length
-    ? Number((scored.reduce((sum, item) => sum + Number(item.final_score), 0) / scored.length).toFixed(2))
-    : null;
-  const attendanceRow = attendance.rows[0] || { total: 0, attended: 0 };
-  return ok(res, {
-    ...rows[0],
-    subjects: subjects.rows,
-    average_score: average,
-    attendance: attendanceRow,
-    attendance_percentage: attendanceRow.total ? Math.round((attendanceRow.attended / attendanceRow.total) * 100) : 0,
-  });
+  const report = await reportSnapshotService.getReportData({ studentId });
+  assertHomeroomOfClass(req, report.class_id);
+  return ok(res, report);
 }
 
 async function generateStudentReport(req, res) {
@@ -117,15 +83,19 @@ async function generateStudentReport(req, res) {
     [classId, studentId]
   );
   if (!enrolled.rowCount) throw AppError.notFound('Siswa tidak terdaftar pada kelas wali');
-  const { rows } = await pool.query(
+  await pool.query(
     `INSERT INTO report_cards (class_id, student_id, semester_id, status)
      VALUES ($1, $2, $3, 'Draft')
-     ON CONFLICT (student_id, semester_id)
-     DO UPDATE SET class_id = EXCLUDED.class_id
-     RETURNING *`,
+     ON CONFLICT (student_id, semester_id) DO NOTHING`,
     [classId, studentId, kelas.rows[0].semester_id]
   );
-  return ok(res, rows[0], 'Draft rapor berhasil dibuat');
+  const report = await pool.query(
+    'SELECT * FROM report_cards WHERE student_id = $1 AND semester_id = $2',
+    [studentId, kelas.rows[0].semester_id]
+  );
+  return ok(res, report.rows[0], report.rows[0].status === 'Draft'
+    ? 'Draft rapor berhasil dibuat'
+    : 'Rapor sudah difinalisasi dan tidak diubah');
 }
 
 async function generateAllReports(req, res) {
@@ -136,8 +106,7 @@ async function generateAllReports(req, res) {
   const { rows } = await pool.query(
     `INSERT INTO report_cards (class_id, student_id, semester_id, status)
      SELECT $1, cs.student_id, $2, 'Draft' FROM class_students cs WHERE cs.class_id = $1
-     ON CONFLICT (student_id, semester_id)
-     DO UPDATE SET class_id = EXCLUDED.class_id
+     ON CONFLICT (student_id, semester_id) DO NOTHING
      RETURNING id, student_id, status`,
     [classId, kelas.rows[0].semester_id]
   );
@@ -192,12 +161,30 @@ async function finalizeStudentReport(req, res) {
   if (incomplete.length) {
     throw AppError.unprocessable('Rapor belum dapat difinalisasi karena nilai mata pelajaran belum lengkap', incomplete);
   }
-  const { rows: updated } = await pool.query(
-    `UPDATE report_cards SET status = 'Finalized', finalized_by = $1, finalized_at = now()
-     WHERE id = $2 RETURNING *`,
-    [req.user.sub, rows[0].id]
-  );
-  return ok(res, updated[0], 'Rapor siswa berhasil difinalisasi');
+  const updated = await withTransaction(async (client) => {
+    const locked = await client.query(
+      'SELECT id, status, snapshot_data FROM report_cards WHERE id = $1 FOR UPDATE',
+      [rows[0].id]
+    );
+    if (!locked.rows.length) throw AppError.notFound('Rapor belum tersedia untuk siswa ini');
+    if (locked.rows[0].status !== 'Draft' || locked.rows[0].snapshot_data) {
+      throw AppError.conflict('Rapor yang sudah difinalisasi tidak dapat difinalisasi ulang');
+    }
+    const snapshot = await reportSnapshotService.createReportSnapshot({
+      reportId: rows[0].id,
+      queryable: client,
+    });
+    const result = await client.query(
+      `UPDATE report_cards
+          SET status = 'Finalized', finalized_by = $1, finalized_at = now(),
+              snapshot_data = $3::jsonb
+        WHERE id = $2 AND status = 'Draft'
+        RETURNING *`,
+      [req.user.sub, rows[0].id, JSON.stringify(snapshot)]
+    );
+    return result.rows[0];
+  });
+  return ok(res, updated, 'Rapor siswa berhasil difinalisasi dan snapshot tersimpan');
 }
 
 // Finalisasi seluruh siswa di kelas sekaligus (§6.3). Ditolak bila ada mapel belum lengkap.
@@ -226,16 +213,35 @@ async function finalizeClass(req, res) {
       'SELECT student_id FROM class_students WHERE class_id = $1',
       [classId]
     );
+    let count = 0;
     for (const { student_id: studentId } of studentsRes.rows) {
       await client.query(
-        `INSERT INTO report_cards (class_id, student_id, semester_id, status, finalized_by, finalized_at)
-         VALUES ($1, $2, $3, 'Finalized', $4, now())
-         ON CONFLICT (student_id, semester_id)
-         DO UPDATE SET status = 'Finalized', finalized_by = EXCLUDED.finalized_by, finalized_at = now()`,
-        [classId, studentId, kelas.semester_id, req.user.sub]
+        `INSERT INTO report_cards (class_id, student_id, semester_id, status)
+         VALUES ($1, $2, $3, 'Draft')
+         ON CONFLICT (student_id, semester_id) DO NOTHING`,
+        [classId, studentId, kelas.semester_id]
       );
+      const reportRes = await client.query(
+        `SELECT id, status, snapshot_data FROM report_cards
+          WHERE student_id = $1 AND semester_id = $2 FOR UPDATE`,
+        [studentId, kelas.semester_id]
+      );
+      const report = reportRes.rows[0];
+      if (!report || report.status !== 'Draft' || report.snapshot_data) continue;
+      const snapshot = await reportSnapshotService.createReportSnapshot({
+        reportId: report.id,
+        queryable: client,
+      });
+      await client.query(
+        `UPDATE report_cards
+            SET status = 'Finalized', finalized_by = $1, finalized_at = now(),
+                snapshot_data = $3::jsonb
+          WHERE id = $2 AND status = 'Draft'`,
+        [req.user.sub, report.id, JSON.stringify(snapshot)]
+      );
+      count += 1;
     }
-    return studentsRes.rows.length;
+    return count;
   });
 
   return ok(res, { finalizedCount }, `Rapor kelas ${kelas.name} berhasil difinalisasi`);

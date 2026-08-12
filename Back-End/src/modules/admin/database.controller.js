@@ -130,7 +130,10 @@ async function listReports(req, res) {
             st.id AS student_id, st.nis, st.name AS student_name,
             c.id AS class_id, c.name AS class_name,
             ay.name AS academic_year, sem.name AS semester,
-            ss.average_score
+            COALESCE(
+              NULLIF(rc.snapshot_data ->> 'average_score', '')::numeric,
+              ss.average_score
+            ) AS average_score
        FROM report_cards rc
        JOIN students st ON st.id = rc.student_id
        JOIN classes c ON c.id = rc.class_id

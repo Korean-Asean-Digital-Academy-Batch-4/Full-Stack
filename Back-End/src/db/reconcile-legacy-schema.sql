@@ -7,6 +7,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- login/import lama tetap dapat dicocokkan setelah kolom utama menjadi TEXT.
 ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS nip_legacy_real REAL;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS nis_legacy_bigint BIGINT;
+ALTER TABLE public.report_cards ADD COLUMN IF NOT EXISTS snapshot_data JSONB;
 
 DO $$
 BEGIN
@@ -276,6 +277,7 @@ SELECT pg_temp.ensure_constraint('assessment_components', 'assessment_components
 SELECT pg_temp.ensure_constraint('grades', 'grades_score_check', 'CHECK (score IS NULL OR (score >= 0 AND score <= 100))');
 SELECT pg_temp.ensure_constraint('attendance_records', 'attendance_records_status_check', $$CHECK (status IN ('Hadir', 'Izin', 'Sakit', 'Alpa'))$$);
 SELECT pg_temp.ensure_constraint('report_cards', 'report_cards_status_check', $$CHECK (status IN ('Draft', 'Finalized', 'Distributed'))$$);
+SELECT pg_temp.ensure_constraint('report_cards', 'report_cards_snapshot_data_check', $$CHECK (snapshot_data IS NULL OR jsonb_typeof(snapshot_data) = 'object')$$);
 
 SELECT pg_temp.ensure_constraint('semesters', 'semesters_academic_year_fkey', 'FOREIGN KEY (academic_year_id) REFERENCES public.academic_years(id) ON DELETE RESTRICT');
 SELECT pg_temp.ensure_constraint('subjects', 'subjects_teacher_fkey', 'FOREIGN KEY (teacher_id) REFERENCES public.teachers(id) ON DELETE RESTRICT');

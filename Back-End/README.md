@@ -21,10 +21,12 @@ atau `seed:admin`. Gunakan urutan berikut agar data lama dipertahankan:
 ```bash
 npm run reconcile:schema
 npm run migrate:assessment-topics
+npm run migrate:report-snapshot
 npm run harden:security
 npm run audit:db
 npm run smoke
 npm run smoke:assessment-topics
+npm run smoke:report-snapshot
 npm run dev
 ```
 
@@ -44,6 +46,7 @@ src/
     reconcile-legacy-schema.sql migrasi idempoten tanpa menghapus data
     audit.js                 audit read-only struktur, data, dan keamanan database
     addAssessmentTopics.js   migrasi idempoten tabel topik untuk database existing
+    addReportSnapshot.js     migrasi idempoten snapshot permanen rapor final
     harden.js                tutup Data API, aktifkan RLS, verifikasi keamanan
     security-hardening.sql   hardening idempotent untuk database existing
   middleware/
@@ -84,6 +87,11 @@ scripts/seed-admin.js   buat akun Administrator pertama (tidak ada endpoint sign
 - **Kunci setelah finalisasi** — `reportCardLock.service.js` dipanggil di setiap endpoint
   simpan nilai/presensi milik Guru & Wali Kelas; ditolak (403) jika `report_cards.status`
   kelas tsb bukan `Draft`. Endpoint Admin (`/api/admin/grades`, dst.) tidak dibatasi ini.
+- **Rapor final memakai snapshot immutable.** Pada transaksi finalisasi, backend menyalin
+  identitas siswa/kelas/periode, catatan, nilai beserta bobot/topik/KKM/guru, dan rekap
+  kehadiran ke `report_cards.snapshot_data`. Tampilan wali kelas, siswa, database Admin,
+  dan PDF membaca snapshot tersebut sehingga perubahan data sumber setelah finalisasi
+  tidak mengubah isi rapor yang sudah resmi.
 - **AI Insight tidak pernah ditulis ke DB** — `aiInsight.service.js` murni baca data lalu
   panggil Gemini API; kegagalan (timeout/API error) dikembalikan sebagai `503`, tidak
   melempar 500 supaya jelas ini bukan bug backend (§8.6 poin 7).

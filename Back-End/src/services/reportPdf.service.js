@@ -1,6 +1,5 @@
 const PDFDocument = require('pdfkit');
-const { pool } = require('../db/pool');
-const AppError = require('../utils/AppError');
+const { getReportData } = require('./reportSnapshot.service');
 
 const BLUE = '#0756D9';
 const NAVY = '#20232D';
@@ -18,73 +17,6 @@ function scorePredicate(score, kkm) {
   if (Number(score) >= Number(kkm)) return 'B';
   if (Number(score) >= Number(kkm) - 10) return 'C';
   return 'D';
-}
-
-async function getReportData({ reportId, studentId }) {
-  const condition = reportId ? 'rc.id = $1' : 'rc.student_id = $1';
-  const value = reportId || studentId;
-  const { rows } = await pool.query(
-    `SELECT rc.*, c.name AS class_name, st.name AS student_name, st.nis,
-            sem.name AS semester, ay.name AS academic_year,
-            ht.name AS homeroom_teacher_name
-       FROM report_cards rc
-       JOIN classes c ON c.id = rc.class_id
-       JOIN students st ON st.id = rc.student_id
-       JOIN semesters sem ON sem.id = rc.semester_id
-       JOIN academic_years ay ON ay.id = sem.academic_year_id
-       LEFT JOIN teachers ht ON ht.id = c.homeroom_teacher_id
-      WHERE ${condition}
-      ORDER BY rc.created_at DESC LIMIT 1`,
-    [value]
-  );
-  if (!rows.length) throw AppError.notFound('Rapor belum tersedia');
-  const report = rows[0];
-
-  const [subjectsResult, attendanceResult] = await Promise.all([
-    pool.query(
-      `SELECT sub.id, sub.name, sub.kkm, t.name AS teacher_name,
-              CASE
-                WHEN COUNT(g.id) = 8 AND COUNT(g.id) FILTER (WHERE g.score IS NULL) = 0
-                THEN ROUND(SUM(g.score * ac.weight_percent) / 100.0, 2)
-                ELSE NULL
-              END AS final_score
-         FROM class_subjects csub
-         JOIN subjects sub ON sub.id = csub.subject_id
-         JOIN teachers t ON t.id = sub.teacher_id
-         LEFT JOIN grades g ON g.class_id = csub.class_id
-          AND g.subject_id = sub.id AND g.student_id = $2
-         LEFT JOIN assessment_components ac ON ac.id = g.component_id
-        WHERE csub.class_id = $1
-        GROUP BY sub.id, sub.name, sub.kkm, t.name
-        ORDER BY sub.name`,
-      [report.class_id, report.student_id]
-    ),
-    pool.query(
-      `SELECT COUNT(ar.id)::int AS total,
-              COUNT(ar.id) FILTER (WHERE ar.status = 'Hadir')::int AS hadir,
-              COUNT(ar.id) FILTER (WHERE ar.status = 'Izin')::int AS izin,
-              COUNT(ar.id) FILTER (WHERE ar.status = 'Sakit')::int AS sakit,
-              COUNT(ar.id) FILTER (WHERE ar.status = 'Alpa')::int AS alpa
-         FROM attendance_sessions ats
-         LEFT JOIN attendance_records ar ON ar.session_id = ats.id AND ar.student_id = $2
-        WHERE ats.class_id = $1`,
-      [report.class_id, report.student_id]
-    ),
-  ]);
-  const scored = subjectsResult.rows.filter((item) => item.final_score != null);
-  const average = scored.length
-    ? Number((scored.reduce((sum, item) => sum + Number(item.final_score), 0) / scored.length).toFixed(2))
-    : null;
-  const attendance = attendanceResult.rows[0] || { total: 0, hadir: 0, izin: 0, sakit: 0, alpa: 0 };
-  return {
-    ...report,
-    subjects: subjectsResult.rows,
-    average_score: average,
-    attendance,
-    attendance_percentage: attendance.total
-      ? Math.round((Number(attendance.hadir) / Number(attendance.total)) * 100)
-      : 0,
-  };
 }
 
 function drawLabelValue(doc, label, value, x, y, width) {

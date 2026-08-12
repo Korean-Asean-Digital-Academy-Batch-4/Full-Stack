@@ -49,11 +49,16 @@ export async function getHomeroomReportStudents(classId) {
         .filter((grade) => grade.student_id === student.id && Number(grade.missing_count) === 0 && grade.final_score != null)
         .map((grade) => Number(grade.final_score));
       const report = reports[index];
+      const liveAverage = scores.length
+        ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1))
+        : null;
       return {
         ...student,
         initials: student.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(),
         avatarColor: ["blue", "purple", "orange", "teal"][index % 4],
-        finalGrade: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)) : null,
+        finalGrade: report?.snapshot_version && report.average_score != null
+          ? Number(Number(report.average_score).toFixed(1))
+          : liveAverage,
         reportStatus: reportStatus(report?.status),
         backendReportStatus: report?.status || null,
         reportId: report?.id || null,
