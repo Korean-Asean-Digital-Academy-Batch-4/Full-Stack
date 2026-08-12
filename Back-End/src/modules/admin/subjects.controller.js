@@ -1,4 +1,4 @@
-const { pool } = require('../../db/pool');
+const { pool, withTransaction } = require('../../db/pool');
 const { ok, created } = require('../../utils/response');
 const AppError = require('../../utils/AppError');
 
@@ -79,4 +79,17 @@ async function updateSubject(req, res) {
   return ok(res, rows[0], 'Mata pelajaran berhasil diubah');
 }
 
-module.exports = { createSubject, listSubjects, updateSubject };
+async function deleteSubject(req, res) {
+  const { id } = req.params;
+  await withTransaction(async (client) => {
+    const subject = await client.query('SELECT id FROM subjects WHERE id = $1', [id]);
+    if (!subject.rowCount) throw AppError.notFound('Mata pelajaran tidak ditemukan');
+    await client.query('DELETE FROM attendance_sessions WHERE subject_id = $1', [id]);
+    await client.query('DELETE FROM grades WHERE subject_id = $1', [id]);
+    await client.query('DELETE FROM class_subjects WHERE subject_id = $1', [id]);
+    await client.query('DELETE FROM subjects WHERE id = $1', [id]);
+  });
+  return ok(res, null, 'Mata pelajaran dan seluruh data terkait berhasil dihapus');
+}
+
+module.exports = { createSubject, listSubjects, updateSubject, deleteSubject };

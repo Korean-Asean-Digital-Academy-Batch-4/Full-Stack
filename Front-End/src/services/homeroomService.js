@@ -29,6 +29,59 @@ export async function getHomeroomWorkspace(classId) {
   };
 }
 
+function reportStatus(value) {
+  if (value === "Finalized" || value === "Distributed") return "FINALIZED_SUBJECT";
+  if (value === "Draft") return "DRAFT";
+  return "NOT_CREATED";
+}
+
+export async function getHomeroomReportStudents(classId) {
+  assertHomeroomClassAccess(classId);
+  const overview = await api.get(`/homeroom/classes/${classId}/overview`);
+  const reports = await Promise.all(overview.students.map(async (student) => {
+    try { return await api.get(`/homeroom/report-cards/${student.id}`); }
+    catch (error) { if (error.status === 404) return null; throw error; }
+  }));
+  return {
+    students: overview.students.map((student, index) => {
+      const scores = overview.grades
+        .filter((grade) => grade.student_id === student.id && Number(grade.missing_count) === 0 && grade.final_score != null)
+        .map((grade) => Number(grade.final_score));
+      const report = reports[index];
+      return {
+        ...student,
+        initials: student.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(),
+        avatarColor: ["blue", "purple", "orange", "teal"][index % 4],
+        finalGrade: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)) : null,
+        reportStatus: reportStatus(report?.status),
+        reportId: report?.id || null,
+      };
+    }),
+  };
+}
+
+export async function generateHomeroomStudentReport(classId, studentId) {
+  assertHomeroomClassAccess(classId);
+  return api.post(`/homeroom/classes/${classId}/report-cards/${studentId}/generate`);
+}
+
+export async function generateAllHomeroomReports(classId) {
+  assertHomeroomClassAccess(classId);
+  return api.post(`/homeroom/classes/${classId}/report-cards/generate-all`);
+}
+
+export async function getHomeroomStudentReport(studentId) {
+  return api.get(`/homeroom/report-cards/${studentId}`);
+}
+
+export async function finalizeHomeroomStudentReport(studentId) {
+  return api.post(`/homeroom/report-cards/${studentId}/finalize`);
+}
+
+export async function downloadHomeroomStudentReport(studentId) {
+  return api.download(`/homeroom/report-cards/${studentId}/download`);
+}
+
 export async function finalizeHomeroomReports(classId) { assertHomeroomClassAccess(classId); return api.post(`/homeroom/classes/${classId}/finalize`); }
 export async function distributeHomeroomReports(classId) { assertHomeroomClassAccess(classId); return api.post(`/homeroom/classes/${classId}/distribute`); }
 export async function saveHomeroomReportNote(studentId, note) { return api.patch(`/homeroom/report-cards/${studentId}/note`, { note }); }

@@ -24,10 +24,10 @@ export default function ReportFilters({ assignments, filters, onChange, onShow, 
           <option value={selected?.subjectId}>{selected?.subjectName}</option>
         </Select>
         <Select label="Semester" value={filters.semester} onChange={keepAssignedOption} disabled={loading}>
-          <option value="GANJIL">Semester Ganjil</option>
+          <option value={filters.semester}>{`Semester ${filters.semester ? filters.semester[0] + filters.semester.slice(1).toLowerCase() : "-"}`}</option>
         </Select>
         <Select label="Tahun Ajaran" value={filters.academicYear} onChange={keepAssignedOption} disabled={loading}>
-          <option value="2026/2027">2026/2027</option>
+          <option value={filters.academicYear}>{filters.academicYear || "-"}</option>
         </Select>
         <button
           type="button"

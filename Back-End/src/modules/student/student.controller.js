@@ -3,6 +3,7 @@ const { ok, fail } = require('../../utils/response');
 const AppError = require('../../utils/AppError');
 const aiInsightService = require('../../services/aiInsight.service');
 const assessmentTopicsService = require('../../services/assessmentTopics.service');
+const reportPdfService = require('../../services/reportPdf.service');
 
 async function getMyGrades(req, res) {
   const studentId = req.user.sub;
@@ -102,12 +103,7 @@ async function downloadMyReportCard(req, res) {
   if (!rows.length || rows[0].status !== 'Distributed') {
     throw AppError.forbidden('Rapor belum didistribusikan');
   }
-  const rc = rows[0];
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="rapor-${studentId}.txt"`);
-  return res.send(
-    `RAPOR SEMESTER\nSiswa: ${rc.student_name}\nKelas: ${rc.class_name}\nCatatan Wali Kelas: ${rc.general_note || '-'}\n`
-  );
+  return reportPdfService.sendReportPdf(res, { studentId });
 }
 
 module.exports = {

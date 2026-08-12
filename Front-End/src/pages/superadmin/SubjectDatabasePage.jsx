@@ -1,10 +1,12 @@
-import { Check, Pencil, Plus } from "lucide-react";
+import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import InlineScoreInput from "../../components/superadmin/InlineScoreInput";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import Toast from "../../components/ui/Toast";
 import { validateGradeValue } from "../../utils/gradeValidation";
-import { createSubject, getSubjects, getTeachers, updateSubject } from "../../services/adminService";
+import { createSubject, deleteSubject, getSubjects, getTeachers, updateSubject } from "../../services/adminService";
 
 export default function SubjectDatabasePage() {
   const [subjects, setSubjects] = useState([]);
@@ -19,6 +21,10 @@ export default function SubjectDatabasePage() {
   const [form, setForm] = useState({ name: "", gradeLevel: "X", kkm: "75", teacherId: "" });
   const [formError, setFormError] = useState("");
   const [savingSubject, setSavingSubject] = useState(false);
+  const [deletingSubject, setDeletingSubject] = useState(null);
+  const [deleteState, setDeleteState] = useState("idle");
+  const [deleteError, setDeleteError] = useState("");
+  const [toast, setToast] = useState(null);
 
   const loadSubjects = useCallback(() => {
     let active = true;
@@ -98,6 +104,16 @@ export default function SubjectDatabasePage() {
 
   const visibleSubjects = subjects;
 
+  const removeSubject = async () => {
+    setDeleteState("loading"); setDeleteError("");
+    try {
+      await deleteSubject(deletingSubject.id);
+      setDeletingSubject(null); setDeleteState("idle");
+      setToast({ type: "success", message: "Mata pelajaran berhasil dihapus." });
+      loadSubjects();
+    } catch (error) { setDeleteError(error.message || "Mata pelajaran gagal dihapus."); setDeleteState("error"); }
+  };
+
   return (
     <main className="mx-auto w-full max-w-[1160px] px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -158,7 +174,7 @@ export default function SubjectDatabasePage() {
                     </td>
                     <td className="px-4 py-4">{subject.formula}</td>
                     <td className="px-4 py-4 text-center">
-                      {!isEditing && (
+                      {!isEditing && <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
                           aria-label={`Edit ${subject.name}`}
@@ -167,7 +183,8 @@ export default function SubjectDatabasePage() {
                         >
                           <Pencil aria-hidden="true" className="h-4 w-4" />
                         </button>
-                      )}
+                        <button type="button" aria-label={`Hapus ${subject.name}`} onClick={() => { setDeletingSubject(subject); setDeleteError(""); }} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                      </div>}
                     </td>
                   </tr>
                 );
@@ -196,6 +213,8 @@ export default function SubjectDatabasePage() {
           <div className="flex justify-end gap-3"><Button variant="secondary" onClick={() => setModalOpen(false)}>Batal</Button><Button type="submit" loading={savingSubject} disabled={!teachers.length}>Simpan</Button></div>
         </form>
       </Modal>
+      <ConfirmDialog open={Boolean(deletingSubject)} onClose={() => deleteState !== "loading" && setDeletingSubject(null)} title="Hapus Mata Pelajaran?" description={deletingSubject ? `${deletingSubject.name} beserta penugasan kelas, nilai, topik, dan presensi terkait akan dihapus permanen.` : ""} confirmLabel="Hapus Mapel" onConfirm={removeSubject} loading={deleteState === "loading"} error={deleteError} />
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </main>
   );
 }

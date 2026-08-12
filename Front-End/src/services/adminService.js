@@ -47,6 +47,11 @@ export async function resetUserPassword(userId, role) {
   return api.patch(`/admin/${resource}/${userId}/reset-password`, {});
 }
 
+export async function deleteUser(userId, role) {
+  const resource = role === "teacher" ? "teachers" : "students";
+  return api.delete(`/admin/${resource}/${userId}`);
+}
+
 export async function getSubjects() {
   const subjects = await api.get("/admin/subjects");
   return subjects.map((subject) => ({
@@ -88,6 +93,10 @@ export async function updateSubject(subjectId, patch) {
   };
 }
 
+export async function deleteSubject(subjectId) {
+  return api.delete(`/admin/subjects/${subjectId}`);
+}
+
 export async function getAssessmentComponents() {
   const components = await api.get("/admin/assessment-components");
   return components.map((item) => ({
@@ -125,12 +134,28 @@ export async function createClass(payload) {
   return api.post("/admin/classes", payload);
 }
 
+export async function deleteClass(classId) {
+  return api.delete(`/admin/classes/${classId}`);
+}
+
 export async function setClassHomeroomTeacher(classId, teacherId) {
   return api.patch(`/admin/classes/${classId}/homeroom-teacher`, { teacherId });
 }
 
+export async function clearClassHomeroomTeacher(classId) {
+  return api.delete(`/admin/classes/${classId}/homeroom-teacher`);
+}
+
 export async function addClassSubject(classId, subjectId) {
   return api.post(`/admin/classes/${classId}/subjects`, { subjectId });
+}
+
+export async function removeClassSubject(classId, subjectId) {
+  return api.delete(`/admin/classes/${classId}/subjects/${subjectId}`);
+}
+
+export async function removeClassStudent(classId, studentId) {
+  return api.delete(`/admin/classes/${classId}/students/${studentId}`);
 }
 
 export async function importClassStudents(classId, file) {
@@ -156,6 +181,10 @@ export async function updateAdminAttendance(sessionId, records) {
   return api.put(`/admin/attendance-sessions/${sessionId}/records`, { records });
 }
 
+export async function deleteAdminAttendanceSession(sessionId) {
+  return api.delete(`/admin/attendance-sessions/${sessionId}`);
+}
+
 export async function getAdminGrades({ classId, subjectId }) {
   return api.get("/admin/database/grades", { query: { classId, subjectId } });
 }
@@ -164,12 +193,20 @@ export async function updateAdminGrades({ classId, subjectId, entries }) {
   return api.put("/admin/grades", { classId, subjectId, entries });
 }
 
+export async function deleteAdminGrades({ classId, subjectId }) {
+  return api.delete("/admin/grades", { query: { classId, subjectId } });
+}
+
 export async function getAdminReports(options = {}) {
   return api.get("/admin/database/reports", { query: options });
 }
 
-export async function downloadAdminReport(studentId, fileName) {
-  const blob = await api.download(`/homeroom/report-cards/${studentId}/download`);
+export async function deleteAdminReport(reportId) {
+  return api.delete(`/admin/database/reports/${reportId}`);
+}
+
+export async function downloadAdminReport(reportId, fileName) {
+  const blob = await api.download(`/admin/database/reports/${reportId}/download`);
   downloadBlob(blob, fileName);
 }
 

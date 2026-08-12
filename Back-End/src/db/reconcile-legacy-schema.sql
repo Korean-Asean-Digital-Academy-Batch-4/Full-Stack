@@ -159,7 +159,7 @@ ALTER TABLE public.report_cards ALTER COLUMN created_at SET DEFAULT now();
 ALTER TABLE public.academic_years ALTER COLUMN is_active SET DEFAULT false;
 ALTER TABLE public.semesters ALTER COLUMN is_active SET DEFAULT false;
 ALTER TABLE public.subjects ALTER COLUMN kkm SET DEFAULT 75;
-ALTER TABLE public.attendance_records ALTER COLUMN status SET DEFAULT 'Alpa';
+ALTER TABLE public.attendance_records ALTER COLUMN status SET DEFAULT 'Hadir';
 ALTER TABLE public.report_cards ALTER COLUMN status SET DEFAULT 'Draft';
 
 -- Kolom wajib sesuai kontrak backend.

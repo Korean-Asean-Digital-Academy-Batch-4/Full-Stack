@@ -1,10 +1,14 @@
-import { AlertCircle, BookOpenCheck, CirclePlus, Download, LoaderCircle, RefreshCw, School, Settings2, Upload, UsersRound } from "lucide-react";
+import { AlertCircle, BookOpenCheck, CirclePlus, Download, LoaderCircle, RefreshCw, School, Settings2, Trash2, Upload, UserMinus, UsersRound, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import Toast from "../../components/ui/Toast";
 import {
   addClassSubject,
+  clearClassHomeroomTeacher,
   createClass,
+  deleteClass,
   downloadClassStudentTemplate,
   getClassDetail,
   getClasses,
@@ -12,6 +16,8 @@ import {
   getSubjects,
   getTeachers,
   importClassStudents,
+  removeClassStudent,
+  removeClassSubject,
   setClassHomeroomTeacher,
 } from "../../services/adminService";
 
@@ -35,6 +41,10 @@ export default function ClassAssignmentPage({ gradeLevel }) {
   const [manageError, setManageError] = useState("");
   const [manageMessage, setManageMessage] = useState("");
   const [manageSaving, setManageSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteState, setDeleteState] = useState("idle");
+  const [deleteError, setDeleteError] = useState("");
+  const [toast, setToast] = useState(null);
 
   const loadClasses = useCallback(async () => {
     setState("loading"); setError("");
@@ -109,11 +119,42 @@ export default function ClassAssignmentPage({ gradeLevel }) {
     finally { setManageSaving(false); }
   };
 
+  const requestDelete = (type, item) => { setDeleteTarget({ type, item }); setDeleteError(""); };
+  const deleteDescription = deleteTarget?.type === "class"
+    ? `Kelas ${deleteTarget.item.name} beserta nilai, presensi, rapor, dan seluruh penugasannya akan dihapus permanen.`
+    : deleteTarget?.type === "subject"
+      ? `${deleteTarget.item.name} akan dilepas dari ${detail?.name}. Nilai dan presensi mapel pada kelas ini ikut dihapus.`
+      : deleteTarget?.type === "student"
+        ? `${deleteTarget.item.name} akan dikeluarkan dari ${detail?.name}. Nilai, presensi, dan rapornya pada kelas ini ikut dihapus.`
+        : `Penugasan wali kelas ${detail?.homeroom_teacher_name || ""} pada ${detail?.name || "kelas"} akan dikosongkan.`;
+
+  const runDelete = async () => {
+    setDeleteState("loading"); setDeleteError("");
+    try {
+      if (deleteTarget.type === "class") {
+        await deleteClass(selectedId);
+        setSelectedId(""); setDetail(null);
+        await loadClasses();
+      } else if (deleteTarget.type === "subject") {
+        await removeClassSubject(selectedId, deleteTarget.item.id);
+        await refreshSelectedClass();
+      } else if (deleteTarget.type === "student") {
+        await removeClassStudent(selectedId, deleteTarget.item.id);
+        await refreshSelectedClass();
+      } else {
+        await clearClassHomeroomTeacher(selectedId);
+        await refreshSelectedClass();
+      }
+      setToast({ type: "success", message: "Data penugasan berhasil dihapus." });
+      setDeleteTarget(null); setDeleteState("idle");
+    } catch (requestError) { setDeleteError(requestError.message || "Data penugasan gagal dihapus."); setDeleteState("error"); }
+  };
+
   return <main className="mx-auto w-full max-w-[1160px] px-4 py-8 sm:px-6 lg:px-8">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-3xl font-bold text-[#20232D]">Penugasan Kelas {gradeLevel}</h1><p className="mt-2 text-sm text-[#697184]">Kelas, siswa, wali kelas, dan mapel dari database periode akademik.</p></div><div className="flex gap-2"><Button variant="secondary" onClick={loadClasses}><RefreshCw className="h-4 w-4" /> Muat Ulang</Button><Button onClick={openCreate}><CirclePlus className="h-4 w-4" /> Buat Kelas</Button></div></header>
     {state === "error" ? <section role="alert" className="mt-8 rounded-xl border border-red-100 bg-white p-10 text-center"><AlertCircle className="mx-auto h-8 w-8 text-red-500" /><p className="mt-3 text-red-700">{error}</p></section> : <div className="mt-7 grid gap-5 lg:grid-cols-[300px_1fr]">
       <aside className="overflow-hidden rounded-xl border border-[#D7DCE7] bg-white"><h2 className="border-b bg-[#F5F7FA] px-4 py-3 text-sm font-semibold">Daftar Kelas ({classes.length})</h2>{state === "loading" && !classes.length ? <LoaderCircle className="mx-auto my-10 h-6 w-6 animate-spin text-[#0756D9]" /> : classes.length ? <div className="divide-y">{classes.map((item) => <button key={item.id} type="button" onClick={() => selectClass(item.id)} className={`w-full px-4 py-4 text-left hover:bg-[#F3F7FF] ${item.id === selectedId ? "bg-[#EAF1FF]" : ""}`}><p className="font-semibold text-[#20232D]">{item.name}</p><p className="mt-1 text-xs text-[#697184]">{item.student_count} siswa · {item.subject_count} mapel</p></button>)}</div> : <p className="p-8 text-center text-sm text-[#697184]">Belum ada kelas pada jenjang ini.</p>}</aside>
-      <section className="rounded-xl border border-[#D7DCE7] bg-white p-5">{state === "loading" && selectedId ? <div className="py-20 text-center"><LoaderCircle className="mx-auto h-7 w-7 animate-spin text-[#0756D9]" /></div> : detail ? <><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-xl font-bold">{detail.name}</h2><p className="mt-1 text-sm text-[#697184]">Jenjang {detail.grade_level}</p></div><Button variant="secondary" className="h-10" onClick={openManage}><Settings2 className="h-4 w-4" /> Kelola Penugasan</Button></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><Summary icon={UsersRound} label="Siswa" value={detail.students.length} /><Summary icon={BookOpenCheck} label="Mapel" value={detail.subjects.length} /><Summary icon={School} label="Wali Kelas" value={detail.homeroom_teacher_name || "Belum ditetapkan"} /></div><h3 className="mt-7 font-bold">Mata Pelajaran</h3><div className="mt-3 divide-y rounded-lg border">{detail.subjects.length ? detail.subjects.map((subject) => <div key={subject.id} className="flex justify-between gap-4 px-4 py-3 text-sm"><span className="font-semibold">{subject.name}</span><span className="text-[#697184]">{subject.teacher_name} · KKM {subject.kkm}</span></div>) : <p className="p-5 text-sm text-[#697184]">Belum ada mapel yang dihubungkan.</p>}</div><h3 className="mt-7 font-bold">Siswa Terdaftar</h3><div className="mt-3 max-h-[300px] overflow-auto divide-y rounded-lg border">{detail.students.length ? detail.students.map((student) => <div key={student.id} className="flex justify-between px-4 py-3 text-sm"><span className="font-medium">{student.name}</span><span className="font-mono text-xs text-[#697184]">{student.nis}</span></div>) : <p className="p-5 text-sm text-[#697184]">Belum ada siswa di kelas ini.</p>}</div></> : <p className="py-20 text-center text-[#697184]">Pilih kelas untuk melihat penugasan.</p>}</section>
+      <section className="rounded-xl border border-[#D7DCE7] bg-white p-5">{state === "loading" && selectedId ? <div className="py-20 text-center"><LoaderCircle className="mx-auto h-7 w-7 animate-spin text-[#0756D9]" /></div> : detail ? <><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-xl font-bold">{detail.name}</h2><p className="mt-1 text-sm text-[#697184]">Jenjang {detail.grade_level}</p></div><div className="flex gap-2"><Button variant="danger" className="h-10" onClick={() => requestDelete("class", detail)}><Trash2 className="h-4 w-4" /> Hapus Kelas</Button><Button variant="secondary" className="h-10" onClick={openManage}><Settings2 className="h-4 w-4" /> Kelola Penugasan</Button></div></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><Summary icon={UsersRound} label="Siswa" value={detail.students.length} /><Summary icon={BookOpenCheck} label="Mapel" value={detail.subjects.length} /><article className="rounded-lg bg-[#F5F8FD] p-4"><div className="flex items-start justify-between"><School className="h-5 w-5 text-[#0756D9]" />{detail.homeroom_teacher_id && <button type="button" aria-label="Kosongkan wali kelas" onClick={() => requestDelete("homeroom", detail)} className="rounded p-1 text-red-600 hover:bg-red-50"><X className="h-4 w-4" /></button>}</div><p className="mt-3 text-xs uppercase text-[#697184]">Wali Kelas</p><p className="mt-1 font-bold text-[#20232D]">{detail.homeroom_teacher_name || "Belum ditetapkan"}</p></article></div><h3 className="mt-7 font-bold">Mata Pelajaran</h3><div className="mt-3 divide-y rounded-lg border">{detail.subjects.length ? detail.subjects.map((subject) => <div key={subject.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm"><span className="font-semibold">{subject.name}</span><div className="flex items-center gap-2"><span className="text-[#697184]">{subject.teacher_name} · KKM {subject.kkm}</span><button type="button" onClick={() => requestDelete("subject", subject)} aria-label={`Lepas ${subject.name}`} className="rounded p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button></div></div>) : <p className="p-5 text-sm text-[#697184]">Belum ada mapel yang dihubungkan.</p>}</div><h3 className="mt-7 font-bold">Siswa Terdaftar</h3><div className="mt-3 max-h-[300px] overflow-auto divide-y rounded-lg border">{detail.students.length ? detail.students.map((student) => <div key={student.id} className="flex items-center justify-between px-4 py-3 text-sm"><span className="font-medium">{student.name}</span><div className="flex items-center gap-2"><span className="font-mono text-xs text-[#697184]">{student.nis}</span><button type="button" onClick={() => requestDelete("student", student)} aria-label={`Keluarkan ${student.name}`} className="rounded p-1.5 text-red-600 hover:bg-red-50"><UserMinus className="h-4 w-4" /></button></div></div>) : <p className="p-5 text-sm text-[#697184]">Belum ada siswa di kelas ini.</p>}</div></> : <p className="py-20 text-center text-[#697184]">Pilih kelas untuk melihat penugasan.</p>}</section>
     </div>}
     <Modal open={modalOpen} onClose={() => !saving && setModalOpen(false)} title={`Buat Kelas ${gradeLevel}`} description="Kelas akan disimpan ke periode semester yang dipilih."><form onSubmit={submit} className="space-y-4"><label className="block text-sm font-semibold">Nama Kelas<input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder={`Contoh: ${gradeLevel} IPA 1`} className="mt-2 h-11 w-full rounded-lg border px-3 outline-none focus:border-[#0756D9]" /></label><label className="block text-sm font-semibold">Semester<select value={form.semesterId} onChange={(event) => setForm((current) => ({ ...current, semesterId: event.target.value }))} className="mt-2 h-11 w-full rounded-lg border px-3">{semesters.map((item) => <option key={item.id} value={item.id}>{item.academic_year_name} · {item.name}{item.is_active ? " (Aktif)" : ""}</option>)}</select></label>{formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}<div className="flex justify-end gap-3"><Button variant="secondary" onClick={() => setModalOpen(false)}>Batal</Button><Button type="submit" loading={saving}>Simpan Kelas</Button></div></form></Modal>
     <Modal open={manageOpen} onClose={() => !manageSaving && setManageOpen(false)} title={`Kelola ${detail?.name || "Kelas"}`} description="Tetapkan wali kelas, hubungkan mata pelajaran, dan masukkan siswa terdaftar." panelClassName="max-w-xl">
@@ -124,6 +165,8 @@ export default function ClassAssignmentPage({ gradeLevel }) {
         {manageError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{manageError}</p>}{manageMessage && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{manageMessage}</p>}
       </div>
     </Modal>
+    <ConfirmDialog open={Boolean(deleteTarget)} onClose={() => deleteState !== "loading" && setDeleteTarget(null)} title="Hapus Data Penugasan?" description={deleteDescription} confirmLabel="Hapus" onConfirm={runDelete} loading={deleteState === "loading"} error={deleteError} />
+    <Toast toast={toast} onClose={() => setToast(null)} />
   </main>;
 }
 

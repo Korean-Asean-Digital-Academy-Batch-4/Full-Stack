@@ -1,9 +1,11 @@
-import { AlertCircle, ChevronLeft, ChevronRight, KeyRound, LoaderCircle, RefreshCw, Search } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, KeyRound, LoaderCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
-import { getTeachers, resetUserPassword } from "../../services/adminService";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import Toast from "../../components/ui/Toast";
+import { deleteUser, getTeachers, resetUserPassword } from "../../services/adminService";
 
 const PAGE_SIZE = 8;
 const avatarTones = [
@@ -44,6 +46,10 @@ export default function TeacherDirectoryPage() {
   const [passwordStatus, setPasswordStatus] = useState("idle");
   const [newPassword, setNewPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [deletingTeacher, setDeletingTeacher] = useState(null);
+  const [deleteState, setDeleteState] = useState("idle");
+  const [deleteError, setDeleteError] = useState("");
+  const [toast, setToast] = useState(null);
 
   const loadTeachers = useCallback(async () => {
     setStatus("loading");
@@ -88,6 +94,16 @@ export default function TeacherDirectoryPage() {
       setPasswordError(error.message || "Password gagal direset.");
       setPasswordStatus("error");
     }
+  };
+
+  const removeTeacher = async () => {
+    setDeleteState("loading"); setDeleteError("");
+    try {
+      await deleteUser(deletingTeacher.id, "teacher");
+      setDeletingTeacher(null); setDeleteState("idle");
+      setToast({ type: "success", message: "Akun guru berhasil dihapus." });
+      await loadTeachers();
+    } catch (error) { setDeleteError(error.message || "Akun guru gagal dihapus."); setDeleteState("error"); }
   };
 
   const filteredTeachers = useMemo(() => {
@@ -196,11 +212,12 @@ export default function TeacherDirectoryPage() {
                     </td>
                     <td className="px-5 py-5">{teacher.subject_assignment || <span className="text-[#8A93A6]">Belum ditugaskan</span>}</td>
                     <td className="px-5 py-5 text-xs text-[#697184]">{formatCreatedAt(teacher.created_at)}</td>
-                    <td className="px-5 py-5 text-center">
+                    <td className="px-5 py-5 text-center"><div className="flex items-center justify-center gap-2">
                       <button type="button" onClick={() => openPasswordModal(teacher)} className="inline-flex items-center gap-1.5 rounded-md border border-[#C8D0DF] px-3 py-2 text-xs font-medium text-[#0756D9] transition-colors hover:bg-[#E8EFFF]">
                         <KeyRound aria-hidden="true" className="h-3.5 w-3.5" /> Reset Password
                       </button>
-                    </td>
+                      <button type="button" onClick={() => { setDeletingTeacher(teacher); setDeleteError(""); }} aria-label={`Hapus ${teacher.name}`} className="rounded-md border border-red-200 p-2 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                    </div></td>
                   </tr>
                 ))}
               </tbody>
@@ -252,6 +269,8 @@ export default function TeacherDirectoryPage() {
           </div>
         )}
       </Modal>
+      <ConfirmDialog open={Boolean(deletingTeacher)} onClose={() => deleteState !== "loading" && setDeletingTeacher(null)} title="Hapus Akun Guru?" description={deletingTeacher ? `${deletingTeacher.name} (${deletingTeacher.nip}) beserta penugasan dan data terkait akan dihapus permanen.` : ""} confirmLabel="Hapus Guru" onConfirm={removeTeacher} loading={deleteState === "loading"} error={deleteError} />
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </main>
   );
 }

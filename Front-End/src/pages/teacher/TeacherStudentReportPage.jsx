@@ -1,203 +1,87 @@
-import { RefreshCw, Sparkles } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Download, RefreshCw, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useBlocker, useParams, useSearchParams } from "react-router-dom";
-import AttendanceSummaryCard from "../../components/reports/AttendanceSummaryCard";
-import FinalizeConfirmationModal from "../../components/reports/FinalizeConfirmationModal";
-import FinalizeReportButton from "../../components/reports/FinalizeReportButton";
-import ReportDownloadButton from "../../components/reports/ReportDownloadButton";
-import ReportFinalizedBanner from "../../components/reports/ReportFinalizedBanner";
-import ReportIncompleteAlert from "../../components/reports/ReportIncompleteAlert";
-import ReportNoteEditor from "../../components/reports/ReportNoteEditor";
-import ReportNoteReadOnly from "../../components/reports/ReportNoteReadOnly";
-import ReportNoteUnsavedModal from "../../components/reports/ReportNoteUnsavedModal";
-import ReportSummaryCard from "../../components/reports/ReportSummaryCard";
-import StudentReportHeader from "../../components/reports/StudentReportHeader";
-import SubjectScoreSummary from "../../components/reports/SubjectScoreSummary";
+import { Link, useParams } from "react-router-dom";
 import Button from "../../components/ui/Button";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Spinner from "../../components/ui/Spinner";
 import Toast from "../../components/ui/Toast";
-import { REPORT_STATUSES } from "../../data/reportData";
 import {
-  downloadSubjectReport,
-  finalizeSubjectReport,
-  getStudentReport,
-  saveReportNote,
-} from "../../services/reportService";
-import { getStoredUser } from "../../stores/authStore";
-import { validateSubjectFinalization } from "../../utils/reportValidation";
-
-function finalizedMetadata(report) {
-  if (!report.finalizedAt) return "";
-  const date = new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeStyle: "short" }).format(new Date(report.finalizedAt));
-  return `Difinalisasi oleh ${getStoredUser()?.name || "Wali Kelas"} pada ${date}.`;
-}
+  downloadHomeroomStudentReport,
+  finalizeHomeroomStudentReport,
+  getHomeroomStudentReport,
+  saveHomeroomReportNote,
+} from "../../services/homeroomService";
 
 export default function TeacherStudentReportPage() {
   const { studentId } = useParams();
-  const [searchParams] = useSearchParams();
-  const assignmentId = searchParams.get("assignment") || "ASN-001";
-  const [pageState, setPageState] = useState("loading");
-  const [data, setData] = useState(null);
+  const [state, setState] = useState("loading");
+  const [report, setReport] = useState(null);
   const [note, setNote] = useState("");
   const [savedNote, setSavedNote] = useState("");
-  const [noteDirty, setNoteDirty] = useState(false);
-  const [aiDraft, setAiDraft] = useState(false);
-  const [savingNote, setSavingNote] = useState(false);
+  const [action, setAction] = useState("");
   const [finalizeOpen, setFinalizeOpen] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [unsavedOpen, setUnsavedOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
+  const [actionError, setActionError] = useState("");
   const [toast, setToast] = useState(null);
-  const blocker = useBlocker(noteDirty);
-
-  const report = data?.report;
-  const finalized = report?.status === REPORT_STATUSES.FINALIZED_SUBJECT;
-  const finalizationProblems = useMemo(() => validateSubjectFinalization(report), [report]);
 
   const load = async () => {
-    setPageState("loading");
+    setState("loading");
     try {
-      const result = await getStudentReport(studentId, assignmentId);
-      setData(result);
-      setNote(result.report.note || "");
-      setSavedNote(result.report.note || "");
-      setNoteDirty(false);
-      setAiDraft(false);
-      setPageState("loaded");
-    } catch {
-      setPageState("error");
-    }
+      const data = await getHomeroomStudentReport(studentId);
+      setReport(data); setNote(data.general_note || ""); setSavedNote(data.general_note || ""); setState("loaded");
+    } catch { setState("error"); }
   };
+  useEffect(() => { load(); }, [studentId]);
 
-  useEffect(() => { load(); }, [assignmentId, studentId]);
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setPendingAction("navigate");
-      setUnsavedOpen(true);
-    }
-  }, [blocker.state]);
-  useEffect(() => {
-    if (!noteDirty) return undefined;
-    const beforeUnload = (event) => { event.preventDefault(); event.returnValue = ""; };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [noteDirty]);
-  useEffect(() => {
-    if (!toast) return undefined;
-    const timer = setTimeout(() => setToast(null), 4200);
-    return () => clearTimeout(timer);
-  }, [toast]);
+  const finalized = report?.status === "Finalized" || report?.status === "Distributed";
+  const completeSubjects = useMemo(
+    () => (report?.subjects || []).filter((item) => item.final_score != null && Number(item.recorded_components) === 8 && Number(item.missing_count) === 0),
+    [report],
+  );
+  const incomplete = completeSubjects.length !== (report?.subjects || []).length;
 
-  const changeNote = (value) => {
-    setNote(value);
-    setNoteDirty(value !== savedNote);
-    setAiDraft(false);
-  };
-
-  const completePendingAction = (action) => {
-    setUnsavedOpen(false);
-    setPendingAction(null);
-    if (action === "navigate") blocker.proceed?.();
-    else if (action === "finalize") setFinalizeOpen(true);
-  };
-
-  const saveNote = async (afterAction = null) => {
-    setSavingNote(true);
+  const saveNote = async () => {
+    setAction("save");
     try {
-      const updated = await saveReportNote({ studentId, assignmentId, note });
-      setData((current) => ({ ...current, report: updated }));
-      setSavedNote(updated.note);
-      setNote(updated.note);
-      setNoteDirty(false);
-      setAiDraft(false);
+      const updated = await saveHomeroomReportNote(studentId, note.trim());
+      setReport((current) => ({ ...current, general_note: updated.general_note }));
+      setSavedNote(updated.general_note || ""); setNote(updated.general_note || "");
       setToast({ type: "success", message: "Catatan rapor berhasil disimpan." });
-      if (afterAction) completePendingAction(afterAction);
-      else setUnsavedOpen(false);
-    } catch {
-      setToast({ type: "error", message: "Catatan rapor gagal disimpan. Silakan coba kembali." });
-    } finally {
-      setSavingNote(false);
-    }
+    } catch (error) { setToast({ type: "error", message: error.message || "Catatan gagal disimpan." }); }
+    finally { setAction(""); }
   };
 
-  const discardChanges = () => {
-    const action = pendingAction;
-    setNote(savedNote);
-    setNoteDirty(false);
-    setAiDraft(false);
-    completePendingAction(action);
+  const makeDraft = () => {
+    const strongSubjects = completeSubjects.filter((item) => Number(item.final_score) >= Number(item.kkm)).map((item) => item.name);
+    setNote(`${report.student_name} menunjukkan perkembangan belajar yang ${report.average_score >= 80 ? "sangat baik" : "baik"}. ${strongSubjects.length ? `Capaian menonjol terlihat pada ${strongSubjects.join(", ")}. ` : ""}Kehadiran tercatat ${report.attendance.attended} dari ${report.attendance.total} pertemuan. Pertahankan konsistensi belajar dan tingkatkan materi yang masih perlu diperkuat.`);
   };
 
-  const cancelNoteChanges = () => {
-    if (!noteDirty) return;
-    setPendingAction("cancel");
-    setUnsavedOpen(true);
-  };
-
-  const requestFinalize = () => {
-    if (noteDirty) {
-      setPendingAction("finalize");
-      setUnsavedOpen(true);
-      return;
-    }
-    if (!finalizationProblems.length) setFinalizeOpen(true);
-  };
-
-  const confirmFinalize = async () => {
-    setFinalizing(true);
-    try {
-      const updated = await finalizeSubjectReport({ studentId, assignmentId });
-      setData((current) => ({ ...current, report: updated }));
-      setFinalizeOpen(false);
-      setToast({ type: "success", message: `Rapor ${data.student.name} berhasil difinalisasi.` });
-    } catch {
-      setToast({ type: "error", message: "Rapor gagal difinalisasi. Silakan periksa data kembali." });
-    } finally {
-      setFinalizing(false);
-    }
+  const finalize = async () => {
+    setAction("finalize"); setActionError("");
+    try { await finalizeHomeroomStudentReport(studentId); setFinalizeOpen(false); await load(); setToast({ type: "success", message: "Rapor berhasil difinalisasi." }); }
+    catch (error) { setActionError(error.message || "Rapor belum dapat difinalisasi."); }
+    finally { setAction(""); }
   };
 
   const download = async () => {
-    setDownloading(true);
+    setAction("download");
     try {
-      const fileName = await downloadSubjectReport({ report, student: data.student, assignment: data.assignment, preview: !finalized });
-      setToast({ type: "success", message: `${fileName} berhasil dibuat.` });
-    } catch {
-      setToast({ type: "error", message: "PDF rapor gagal dibuat." });
-    } finally {
-      setDownloading(false);
-    }
+      const blob = await downloadHomeroomStudentReport(studentId);
+      const url = URL.createObjectURL(blob); const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = `rapor-${report.nis || studentId}.pdf`; anchor.click(); URL.revokeObjectURL(url);
+      setToast({ type: "success", message: "Rapor PDF berhasil diunduh." });
+    } catch (error) { setToast({ type: "error", message: error.message || "Rapor belum dapat diunduh." }); }
+    finally { setAction(""); }
   };
 
-  const makeAiDraft = () => {
-    const next = `${data.student.name} memperoleh nilai akhir ${report.finalGrade} pada ${data.assignment.subjectName}. Kehadiran tercatat ${report.attendance.attended} dari ${report.attendance.total} pertemuan. Pertahankan capaian pada tugas dan ulangi materi yang masih perlu diperkuat berdasarkan hasil UTS. Draf ini perlu ditinjau Guru sebelum disimpan.`;
-    setNote(next);
-    setNoteDirty(next !== savedNote);
-    setAiDraft(true);
-  };
+  if (state === "loading") return <div className="flex min-h-[55vh] items-center justify-center"><Spinner className="h-9 w-9 text-[#0756D9]" /></div>;
+  if (state === "error") return <div className="px-5 py-14"><section className="mx-auto max-w-md rounded-xl border bg-white p-8 text-center"><h1 className="text-xl font-bold">Rapor tidak dapat dimuat</h1><p className="mt-2 text-sm text-[#697184]">Rapor belum dibuat atau akun ini bukan wali kelas siswa tersebut.</p><Button onClick={load} className="mt-5"><RefreshCw className="h-4 w-4" /> Coba Lagi</Button></section></div>;
 
-  if (pageState === "loading") return <div role="status" className="flex min-h-[55vh] items-center justify-center"><Spinner className="h-9 w-9 text-[#0756D9]" /><span className="sr-only">Memuat detail rapor</span></div>;
-  if (pageState === "error") return <div className="px-4 py-12"><section role="alert" className="mx-auto max-w-md rounded-2xl bg-white p-8 text-center shadow-soft"><h1 className="text-xl font-bold">Rapor tidak dapat dimuat</h1><p className="mt-2 text-sm text-[#64748B]">Rapor belum dibuat atau Anda tidak memiliki akses.</p><Button onClick={load} className="mt-6"><RefreshCw aria-hidden="true" className="h-4 w-4" /> Coba Lagi</Button></section></div>;
+  return <main className="px-4 py-8 sm:px-7 lg:px-10"><div className="mx-auto max-w-[1120px]">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><Link to="/teacher/reports" className="mt-1 rounded p-2 text-[#697184] hover:bg-white"><ArrowLeft className="h-5 w-5" /></Link><div><h1 className="text-2xl font-bold text-[#20232D]">{report.student_name}</h1><p className="mt-1 text-sm text-[#697184]">{report.class_name} · Rapor Semester</p></div></div><div className="flex flex-wrap gap-2"><span className={`inline-flex items-center rounded-full px-3 text-xs font-semibold ${finalized ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{finalized ? report.status : "Belum Difinalisasi"}</span><Button onClick={() => { setFinalizeOpen(true); setActionError(""); }} disabled={finalized || incomplete} className="bg-amber-500 hover:bg-amber-600"><ShieldCheck className="h-4 w-4" /> Finalisasi Rapor</Button><Button variant="secondary" onClick={download} loading={action === "download"}><Download className="h-4 w-4" /> Download PDF</Button></div></header>
 
-  const headerActions = finalized ? (
-    <ReportDownloadButton finalized onClick={download} loading={downloading} />
-  ) : (
-    <><FinalizeReportButton onClick={requestFinalize} disabled={finalizationProblems.length > 0 && !noteDirty} reason={finalizationProblems[0]} loading={finalizing} /><ReportDownloadButton finalized={false} onClick={download} loading={downloading} /></>
-  );
+    {incomplete && <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Finalisasi terkunci karena masih ada nilai mata pelajaran yang belum lengkap.</p>}
+    <section className="mt-7 grid gap-4 lg:grid-cols-[0.65fr_1.35fr]"><div className="space-y-4"><article className="rounded-2xl border bg-white p-6"><p className="text-xs font-semibold uppercase text-[#697184]">Rata-rata Nilai</p><p className="mt-7 text-5xl font-medium text-[#0756D9]">{report.average_score ?? "–"}</p></article><article className="rounded-2xl border bg-white p-6"><div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase text-[#697184]">Kehadiran</p><CalendarCheck className="h-5 w-5 text-emerald-500" /></div><p className="mt-7 text-4xl">{report.attendance_percentage}%</p><div className="mt-3 h-1.5 rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${report.attendance_percentage}%` }} /></div></article></div><article className="rounded-2xl border bg-white p-6"><h2 className="font-bold">Rangkuman Nilai Mapel</h2><div className="mt-5 divide-y">{report.subjects.map((subject) => <div key={subject.id} className="flex justify-between py-4 text-sm"><span>{subject.name}</span><span className={subject.final_score == null ? "text-amber-600" : "font-semibold text-[#0756D9]"}>{subject.final_score ?? "Belum lengkap"}</span></div>)}</div></article></section>
 
-  return (
-    <div className="px-4 py-8 sm:px-7 lg:px-10"><div className="mx-auto max-w-[1120px]">
-      <StudentReportHeader student={data.student} assignment={data.assignment} status={report.status} actions={headerActions} />
-      <div className="mt-7 space-y-4">{finalized && <><ReportFinalizedBanner metadata={finalizedMetadata(report)} /><section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-800">Perubahan setelah finalisasi harus diajukan melalui Administrator sekolah.</section></>}{!finalized && <ReportIncompleteAlert problems={finalizationProblems} />}</div>
-      <section className="mt-7 grid gap-4 lg:grid-cols-[0.72fr_0.72fr_1.35fr]"><ReportSummaryCard value={report.finalGrade} /><AttendanceSummaryCard percentage={report.attendancePercentage} attendance={report.attendance} /><SubjectScoreSummary assignment={data.assignment} report={report} reportViewMode="subject" /></section>
-      <div className="mt-5">{finalized ? <ReportNoteReadOnly note={report.note} metadata={finalizedMetadata(report)} /> : <ReportNoteEditor value={note} onChange={changeNote} onSave={() => saveNote()} onCancel={cancelNoteChanges} onAiDraft={makeAiDraft} saving={savingNote} dirty={noteDirty} aiDraft={aiDraft} />}</div>
-      {!finalized && <section className="mt-5 rounded-xl border border-violet-100 bg-violet-50 p-4 text-xs leading-5 text-violet-700"><Sparkles aria-hidden="true" className="mr-2 inline h-4 w-4" />Draf AI hanya menyusun kalimat dari nilai, KKM, topik, dan presensi. Guru tetap wajib meninjau serta menyimpan catatan secara manual.</section>}
-    </div>
-
-      <FinalizeConfirmationModal open={finalizeOpen} studentName={data.student.name} ready={!finalizationProblems.length && !noteDirty} loading={finalizing} onClose={() => setFinalizeOpen(false)} onConfirm={confirmFinalize} />
-      <ReportNoteUnsavedModal open={unsavedOpen} saving={savingNote} onClose={() => { setUnsavedOpen(false); setPendingAction(null); blocker.reset?.(); }} onDiscard={discardChanges} onSave={() => saveNote(pendingAction)} />
-      <Toast toast={toast} onClose={() => setToast(null)} />
-    </div>
-  );
+    <section className="mt-6 overflow-hidden rounded-2xl border bg-white"><div className="h-1 bg-gradient-to-r from-violet-500 to-blue-500" /><div className="p-6"><div className="flex items-start justify-between"><div><h2 className="font-bold">Catatan Rapor</h2><p className="mt-1 text-xs text-[#697184]">Tuliskan catatan wali kelas untuk siswa.</p></div>{!finalized && <button type="button" onClick={makeDraft} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600"><Sparkles className="h-4 w-4" /> Buat Draf</button>}</div><textarea rows={7} value={note} onChange={(event) => setNote(event.target.value)} disabled={finalized} className="mt-5 w-full resize-none rounded-xl border bg-[#FBFCFF] p-4 text-sm leading-6 outline-none focus:border-[#0756D9] disabled:bg-slate-50" /><div className="mt-4 flex justify-end gap-3">{!finalized && <><Button variant="secondary" onClick={() => setNote(savedNote)} disabled={note === savedNote}>Batalkan Perubahan</Button><Button onClick={saveNote} loading={action === "save"} disabled={note === savedNote}><Save className="h-4 w-4" /> Simpan Catatan Rapor</Button></>}</div></div></section>
+  </div><ConfirmDialog open={finalizeOpen} onClose={() => action !== "finalize" && setFinalizeOpen(false)} title="Finalisasi Rapor?" description="Setelah finalisasi, catatan terkunci dan rapor dapat diunduh. Periksa kembali seluruh nilai dan catatan." confirmLabel="Finalisasi" confirmVariant="primary" onConfirm={finalize} loading={action === "finalize"} error={actionError} /><Toast toast={toast} onClose={() => setToast(null)} /></main>;
 }

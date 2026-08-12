@@ -96,8 +96,9 @@ scripts/seed-admin.js   buat akun Administrator pertama (tidak ada endpoint sign
 
 ## Yang belum diimplementasikan (di luar cakupan MVP / perlu keputusan lanjutan)
 
-- Generate PDF rapor sungguhan — endpoint download saat ini mengirim ringkasan teks polos
-  sebagai placeholder (lihat catatan di `00-RINGKASAN-MEETING.md`, perlu desain layout dulu).
+- Tanda tangan digital resmi dan nomor dokumen rapor belum tersedia. Rapor A4
+  sudah dihasilkan sebagai PDF melalui generator bersama untuk siswa, wali kelas,
+  dan administrator.
 - Rate limiting endpoint login (disebut di `04-ENV.md` tapi belum dipasang sebagai middleware;
   tambahkan `express-rate-limit` bila diperlukan sebelum production).
 

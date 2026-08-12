@@ -1,7 +1,8 @@
 const { pool, withTransaction } = require('../db/pool');
 const AppError = require('../utils/AppError');
 
-// §8.4 poin 2: sesi selalu terbuka dengan SELURUH siswa berstatus Alpa — dibuat dalam
+// Sesi baru memuat seluruh siswa dengan status awal Hadir. Guru cukup mengubah
+// pengecualian (Izin, Sakit, atau Alpa) sebelum menyimpan presensi.
 // satu transaksi supaya "status kosong" tidak mungkin terjadi.
 async function createSession({ classId, subjectId, teacherId, sessionDate }) {
   return withTransaction(async (client) => {
@@ -27,7 +28,7 @@ async function createSession({ classId, subjectId, teacherId, sessionDate }) {
     for (const { student_id: studentId } of studentsRes.rows) {
       await client.query(
         `INSERT INTO attendance_records (session_id, student_id, status)
-         VALUES ($1, $2, 'Alpa')`,
+         VALUES ($1, $2, 'Hadir')`,
         [sessionRow.id, studentId]
       );
     }

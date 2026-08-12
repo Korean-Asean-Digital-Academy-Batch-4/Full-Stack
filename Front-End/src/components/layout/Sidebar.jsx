@@ -38,7 +38,7 @@ export function getNavigationItems(user = getStoredUser()) {
     },
     {
       to: "/teacher/reports",
-      label: "Buat Rapor",
+      label: "Generate Rapor",
       icon: FileChartColumn,
       disabled: !canCreateReport(user),
     },

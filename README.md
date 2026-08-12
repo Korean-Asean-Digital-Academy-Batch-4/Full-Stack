@@ -98,10 +98,15 @@ Lihat [DEMO_GUIDE.md](./DEMO_GUIDE.md) untuk urutan demonstrasi dan checklist.
 - Jangan commit file `.env`; `.env.example` hanya berisi placeholder.
 - Putar ulang `JWT_SECRET`, password demo, database password, dan Gemini API key
   sebelum repository dibagikan kepada pihak lain.
-- Rapor hanya tersedia setelah wali kelas memfinalisasi dan mendistribusikannya.
+- Siswa hanya dapat mengunduh rapor setelah wali kelas memfinalisasi dan
+  mendistribusikannya. Wali kelas dapat mengunduh pratinjau PDF berwatermark
+  saat rapor masih berstatus Draft, sedangkan admin dapat mengunduh tiap versi
+  rapor dari halaman Database Rapor.
   Database yang belum memiliki `report_cards` akan menampilkan keadaan kosong
   secara jujur, bukan data contoh.
-- Unduhan rapor backend existing saat ini berbentuk `.txt`, belum PDF.
+- Unduhan rapor siswa, wali kelas, dan admin menggunakan PDF A4 (`application/pdf`).
+- Sesi presensi baru otomatis mengisi seluruh siswa dengan status `Hadir`;
+  guru cukup mengubah siswa yang Izin, Sakit, atau Alpa.
 - Paket `xlsx` backend existing dipakai untuk impor siswa. Batasi fitur unggah
   untuk administrator tepercaya dan lakukan pembaruan parser saat versi aman
   tersedia.

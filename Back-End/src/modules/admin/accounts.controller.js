@@ -1,5 +1,5 @@
 const { parse } = require('csv-parse/sync');
-const { pool } = require('../../db/pool');
+const { pool, withTransaction } = require('../../db/pool');
 const { ok, created } = require('../../utils/response');
 const AppError = require('../../utils/AppError');
 const { generateInitialPassword, hashPassword } = require('../../utils/password');
@@ -70,6 +70,31 @@ async function resetTeacherPassword(req, res) {
   return ok(res, { newPassword: plainPassword }, 'Kata sandi berhasil direset');
 }
 
+async function deleteTeacher(req, res) {
+  const { id } = req.params;
+  await withTransaction(async (client) => {
+    const teacher = await client.query('SELECT id FROM teachers WHERE id = $1', [id]);
+    if (!teacher.rowCount) throw AppError.notFound('Guru tidak ditemukan');
+    const subjects = await client.query('SELECT id FROM subjects WHERE teacher_id = $1', [id]);
+    const subjectIds = subjects.rows.map((row) => row.id);
+
+    await client.query('UPDATE classes SET homeroom_teacher_id = NULL WHERE homeroom_teacher_id = $1', [id]);
+    await client.query('UPDATE grades SET filled_by_teacher_id = NULL WHERE filled_by_teacher_id = $1', [id]);
+    await client.query('UPDATE report_cards SET finalized_by = NULL WHERE finalized_by = $1', [id]);
+    await client.query('UPDATE report_cards SET distributed_by = NULL WHERE distributed_by = $1', [id]);
+    await client.query('DELETE FROM assessment_topics WHERE updated_by_teacher_id = $1', [id]);
+    await client.query('DELETE FROM attendance_sessions WHERE teacher_id = $1', [id]);
+    if (subjectIds.length) {
+      await client.query('DELETE FROM attendance_sessions WHERE subject_id = ANY($1::uuid[])', [subjectIds]);
+      await client.query('DELETE FROM grades WHERE subject_id = ANY($1::uuid[])', [subjectIds]);
+      await client.query('DELETE FROM class_subjects WHERE subject_id = ANY($1::uuid[])', [subjectIds]);
+      await client.query('DELETE FROM subjects WHERE id = ANY($1::uuid[])', [subjectIds]);
+    }
+    await client.query('DELETE FROM teachers WHERE id = $1', [id]);
+  });
+  return ok(res, null, 'Akun Guru dan seluruh penugasan terkait berhasil dihapus');
+}
+
 // ---- Siswa --------------------------------------------------------------
 
 async function createStudent(req, res) {
@@ -136,6 +161,20 @@ async function resetStudentPassword(req, res) {
   );
   if (!rowCount) throw AppError.notFound('Siswa tidak ditemukan');
   return ok(res, { newPassword: plainPassword }, 'Kata sandi berhasil direset');
+}
+
+async function deleteStudent(req, res) {
+  const { id } = req.params;
+  await withTransaction(async (client) => {
+    const student = await client.query('SELECT id FROM students WHERE id = $1', [id]);
+    if (!student.rowCount) throw AppError.notFound('Siswa tidak ditemukan');
+    await client.query('DELETE FROM attendance_records WHERE student_id = $1', [id]);
+    await client.query('DELETE FROM grades WHERE student_id = $1', [id]);
+    await client.query('DELETE FROM report_cards WHERE student_id = $1', [id]);
+    await client.query('DELETE FROM class_students WHERE student_id = $1', [id]);
+    await client.query('DELETE FROM students WHERE id = $1', [id]);
+  });
+  return ok(res, null, 'Akun Siswa dan seluruh data akademik terkait berhasil dihapus');
 }
 
 // ---- Helper ---------------------------------------------------------------
@@ -205,6 +244,6 @@ async function ensureStudentIdentifierAvailable(nis) {
 }
 
 module.exports = {
-  createTeacher, importTeachers, listTeachers, resetTeacherPassword,
-  createStudent, importStudents, listStudents, resetStudentPassword,
+  createTeacher, importTeachers, listTeachers, resetTeacherPassword, deleteTeacher,
+  createStudent, importStudents, listStudents, resetStudentPassword, deleteStudent,
 };

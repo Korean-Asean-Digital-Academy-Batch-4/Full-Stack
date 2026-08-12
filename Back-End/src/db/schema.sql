@@ -177,14 +177,14 @@ CREATE TABLE attendance_records (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES attendance_sessions(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES students(id) ON DELETE RESTRICT,
-  status     TEXT NOT NULL DEFAULT 'Alpa' CHECK (status IN ('Hadir', 'Izin', 'Sakit', 'Alpa')),
+  status     TEXT NOT NULL DEFAULT 'Hadir' CHECK (status IN ('Hadir', 'Izin', 'Sakit', 'Alpa')),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (session_id, student_id)
 );
 CREATE TRIGGER trg_attendance_records_updated_at BEFORE UPDATE ON attendance_records
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 COMMENT ON TABLE attendance_records IS
-  'Backend WAJIB insert baris utk seluruh siswa kelas (status Alpa) saat sesi dibuat, dalam satu transaksi (§8.4 poin 2)';
+  'Backend insert baris untuk seluruh siswa kelas dengan status awal Hadir saat sesi dibuat dalam satu transaksi';
 
 -- ---------------------------------------------------------------------------
 -- Rapor semester

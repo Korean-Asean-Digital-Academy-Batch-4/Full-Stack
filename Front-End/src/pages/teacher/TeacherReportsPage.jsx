@@ -1,5 +1,5 @@
 import { CircleAlert, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BulkGenerateButton from "../../components/reports/BulkGenerateButton";
 import GenerateProgressModal from "../../components/reports/GenerateProgressModal";
 import GenerateSuccessModal from "../../components/reports/GenerateSuccessModal";
@@ -11,17 +11,24 @@ import Button from "../../components/ui/Button";
 import Spinner from "../../components/ui/Spinner";
 import Toast from "../../components/ui/Toast";
 import { REPORT_STATUSES } from "../../data/reportData";
-import { teacherUser } from "../../data/teacherData";
-import { generateAllReports, generateStudentReport, getReportStudents } from "../../services/reportService";
+import { generateAllHomeroomReports, generateHomeroomStudentReport, getHomeroomReportStudents } from "../../services/homeroomService";
 import { getStoredUser } from "../../stores/authStore";
 import { canGenerateReport } from "../../utils/reportStatus";
 import { getActiveHomeroomClassId } from "../../utils/teacherPermissions";
 
 export default function TeacherReportsPage() {
   const homeroomClassId = getActiveHomeroomClassId(getStoredUser());
+  const user = getStoredUser();
   const assignments = useMemo(
-    () => teacherUser.assignedClasses.filter((item) => item.id === homeroomClassId),
-    [homeroomClassId],
+    () => homeroomClassId ? [{
+      id: homeroomClassId,
+      name: user?.homeroomAssignment?.className || "Kelas Wali",
+      subjectId: "all-subjects",
+      subjectName: "Semua Mata Pelajaran",
+      academicYear: user?.academicPeriod?.academicYear || "-",
+      semester: user?.academicPeriod?.semester || "-",
+    }] : [],
+    [homeroomClassId, user?.academicPeriod?.academicYear, user?.academicPeriod?.semester, user?.homeroomAssignment?.className],
   );
   const [filters, setFilters] = useState(() => {
     const assignment = assignments[0];
@@ -38,9 +45,7 @@ export default function TeacherReportsPage() {
   const [progress, setProgress] = useState(null);
   const [bulkResult, setBulkResult] = useState(null);
   const [toast, setToast] = useState(null);
-  const controllerRef = useRef(null);
 
-  useEffect(() => () => controllerRef.current?.abort(), []);
   useEffect(() => {
     if (!toast) return undefined;
     const timer = setTimeout(() => setToast(null), 4200);
@@ -55,8 +60,8 @@ export default function TeacherReportsPage() {
   const loadReports = async () => {
     setPageState("loading");
     try {
-      const result = await getReportStudents(filters);
-      setData(result);
+      const result = await getHomeroomReportStudents(filters.classId);
+      setData({ ...result, assignment: assignments[0] });
       setPageState(result.students.length ? "loaded" : "empty");
     } catch {
       setPageState("error");
@@ -73,9 +78,9 @@ export default function TeacherReportsPage() {
     setGeneratingId(student.id);
     setData((current) => ({ ...current, students: current.students.map((item) => item.id === student.id ? { ...item, reportStatus: REPORT_STATUSES.GENERATING } : item) }));
     try {
-      await generateStudentReport({ studentId: student.id, filters });
-      const refreshed = await getReportStudents(filters);
-      setData(refreshed);
+      await generateHomeroomStudentReport(filters.classId, student.id);
+      const refreshed = await getHomeroomReportStudents(filters.classId);
+      setData({ ...refreshed, assignment: assignments[0] });
       setToast({ type: "success", message: `Draft rapor ${student.name} berhasil dibuat.` });
     } catch {
       setData((current) => ({ ...current, students: current.students.map((item) => item.id === student.id ? { ...item, reportStatus: REPORT_STATUSES.ERROR } : item) }));
@@ -87,37 +92,23 @@ export default function TeacherReportsPage() {
 
   const generateBulk = async (ids = eligibleStudents.map((student) => student.id)) => {
     if (!ids.length) return;
-    const controller = new AbortController();
-    controllerRef.current = controller;
     setBulkResult(null);
     setProgress({ processed: 0, total: ids.length, completed: 0, failed: 0 });
     try {
-      const result = await generateAllReports(
-        { studentIds: ids, filters },
-        { signal: controller.signal, onProgress: setProgress },
-      );
-      const refreshed = await getReportStudents(filters);
-      setData(refreshed);
+      const result = await generateAllHomeroomReports(filters.classId);
+      setProgress({ processed: ids.length, total: ids.length, completed: result.generatedCount, failed: 0 });
+      const refreshed = await getHomeroomReportStudents(filters.classId);
+      setData({ ...refreshed, assignment: assignments[0] });
       setProgress(null);
-      if (result.status === "CANCELLED") {
-        setToast({ type: "success", message: "Proses dihentikan. Rapor yang telah selesai tetap tersimpan." });
-      } else {
-        setBulkResult(result);
-      }
+      setBulkResult({ total: ids.length, completed: result.generatedCount, failed: 0, results: [] });
     } catch {
       setProgress(null);
       setToast({ type: "error", message: "Proses pembuatan semua rapor mengalami kendala." });
-    } finally {
-      controllerRef.current = null;
-    }
+    } finally {}
   };
 
-  const cancelBulk = () => controllerRef.current?.abort();
-  const retryFailed = () => {
-    const ids = bulkResult?.results.filter((item) => !item.success).map((item) => item.studentId) || [];
-    setBulkResult(null);
-    generateBulk(ids);
-  };
+  const cancelBulk = () => setProgress(null);
+  const retryFailed = () => setBulkResult(null);
 
   return (
     <div className="px-4 py-8 sm:px-7 lg:px-10">
@@ -133,7 +124,7 @@ export default function TeacherReportsPage() {
         {pageState === "loaded" && data && (
           <section className="mt-7 overflow-hidden rounded-2xl border border-[#E4E8F1] bg-white shadow-soft">
             <div className="flex flex-col gap-2 border-b border-[#E8EBF2] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold text-[#202838]">Daftar Status Rapor Siswa</h2><p className="mt-1 text-xs text-[#64748B]">{data.assignment.name} · {data.assignment.subjectName}</p></div><span className="text-xs text-[#64748B]">{data.students.length} siswa</span></div>
-            <ReportStudentTable students={data.students} assignmentId={data.assignment.assignmentId} generatingId={generatingId} onGenerate={generateOne} />
+            <ReportStudentTable students={data.students} assignmentId={data.assignment.id} generatingId={generatingId} onGenerate={generateOne} />
             <footer className="flex flex-col gap-3 border-t border-[#E8EBF2] bg-[#FBFCFE] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><p className="max-w-xl text-xs leading-5 text-[#64748B]">Generate otomatis hanya mengompilasi nilai resmi, bobot, presensi, dan topik materi. Sistem tidak mengubah atau memfinalisasi nilai.</p><BulkGenerateButton disabled={!eligibleStudents.length || Boolean(progress)} onClick={() => generateBulk()} /></footer>
           </section>
         )}

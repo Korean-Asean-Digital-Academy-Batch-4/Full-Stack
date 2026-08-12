@@ -58,4 +58,4 @@ export async function getStudentProfile() {
 }
 
 export async function getStudentAttendance() { requireCurrentStudent(); return normalizeAttendance(await api.get("/student/attendance")); }
-export async function downloadStudentReport() { const user = requireCurrentStudent(); const blob = await api.download("/student/report-card/download"); downloadBlob(blob, `rapor-${user.nis || user.id}.txt`); }
+export async function downloadStudentReport() { const user = requireCurrentStudent(); const blob = await api.download("/student/report-card/download"); downloadBlob(blob, `rapor-${user.nis || user.id}.pdf`); }

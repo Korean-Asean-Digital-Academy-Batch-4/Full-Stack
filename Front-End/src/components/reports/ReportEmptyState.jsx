@@ -10,7 +10,7 @@ export default function ReportEmptyState({ noStudents = false }) {
       <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[#64748B]">
         {noStudents
           ? "Daftar rapor belum dapat disusun karena kelas belum memiliki siswa aktif."
-          : "Pilih filter di atas untuk melihat daftar status rapor siswa dan memulai proses penyusunan rapor mapel."}
+          : "Pilih filter di atas untuk melihat daftar status rapor siswa dan memulai proses generate otomatis."}
       </p>
       {!noStudents && (
         <div className="mt-9 grid gap-3 text-left sm:grid-cols-2">
@@ -22,7 +22,7 @@ export default function ReportEmptyState({ noStudents = false }) {
           <article className="rounded-xl border border-[#E7E9F2] bg-white p-4 shadow-sm">
             <Printer aria-hidden="true" className="h-5 w-5 text-[#10B981]" />
             <h3 className="mt-3 text-sm font-bold">Siap Export dan Cetak</h3>
-            <p className="mt-1.5 text-xs leading-5 text-[#64748B]">Rapor mapel dapat diunduh dalam format PDF setelah data diperiksa.</p>
+            <p className="mt-1.5 text-xs leading-5 text-[#64748B]">Rapor dapat diunduh setelah data diperiksa dan difinalisasi wali kelas.</p>
           </article>
         </div>
       )}

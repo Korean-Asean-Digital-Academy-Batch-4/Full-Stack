@@ -2,6 +2,7 @@ const { pool, withTransaction } = require('../../db/pool');
 const { ok } = require('../../utils/response');
 const AppError = require('../../utils/AppError');
 const gradesService = require('../../services/grades.service');
+const reportPdfService = require('../../services/reportPdf.service');
 
 const COMPONENT_NAMES = {
   T1: 'Tugas 1', T2: 'Tugas 2', T3: 'Tugas 3',
@@ -143,6 +144,17 @@ async function listReports(req, res) {
   return ok(res, { items: rows, meta: { total: rows.length } });
 }
 
+async function deleteReport(req, res) {
+  const { id } = req.params;
+  const { rowCount } = await pool.query('DELETE FROM report_cards WHERE id = $1', [id]);
+  if (!rowCount) throw AppError.notFound('Rapor tidak ditemukan');
+  return ok(res, null, 'Rapor berhasil dihapus');
+}
+
+async function downloadReport(req, res) {
+  return reportPdfService.sendReportPdf(res, { reportId: req.params.id });
+}
+
 async function getSystemStatus(req, res) {
   const { rows } = await pool.query(
     `SELECT
@@ -165,5 +177,7 @@ module.exports = {
   listAttendance,
   listGrades,
   listReports,
+  downloadReport,
+  deleteReport,
   getSystemStatus,
 };

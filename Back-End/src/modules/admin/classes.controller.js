@@ -1,5 +1,5 @@
 const XLSX = require('xlsx');
-const { pool } = require('../../db/pool');
+const { pool, withTransaction } = require('../../db/pool');
 const { ok, created } = require('../../utils/response');
 const AppError = require('../../utils/AppError');
 
@@ -125,6 +125,63 @@ async function setHomeroomTeacher(req, res) {
   return ok(res, rows[0], `${teacherRes.rows[0].name} ditetapkan sebagai Wali Kelas`);
 }
 
+async function clearHomeroomTeacher(req, res) {
+  const { id: classId } = req.params;
+  const { rows } = await pool.query(
+    'UPDATE classes SET homeroom_teacher_id = NULL WHERE id = $1 RETURNING *',
+    [classId]
+  );
+  if (!rows.length) throw AppError.notFound('Kelas tidak ditemukan');
+  return ok(res, rows[0], 'Penugasan wali kelas berhasil dihapus');
+}
+
+async function removeClassSubject(req, res) {
+  const { id: classId, subjectId } = req.params;
+  await withTransaction(async (client) => {
+    const assignment = await client.query(
+      'SELECT id FROM class_subjects WHERE class_id = $1 AND subject_id = $2',
+      [classId, subjectId]
+    );
+    if (!assignment.rowCount) throw AppError.notFound('Penugasan mata pelajaran tidak ditemukan');
+    await client.query('DELETE FROM attendance_sessions WHERE class_id = $1 AND subject_id = $2', [classId, subjectId]);
+    await client.query('DELETE FROM grades WHERE class_id = $1 AND subject_id = $2', [classId, subjectId]);
+    await client.query('DELETE FROM class_subjects WHERE class_id = $1 AND subject_id = $2', [classId, subjectId]);
+  });
+  return ok(res, null, 'Mata pelajaran berhasil dilepas dari kelas');
+}
+
+async function removeClassStudent(req, res) {
+  const { id: classId, studentId } = req.params;
+  await withTransaction(async (client) => {
+    const enrollment = await client.query(
+      'SELECT id FROM class_students WHERE class_id = $1 AND student_id = $2',
+      [classId, studentId]
+    );
+    if (!enrollment.rowCount) throw AppError.notFound('Siswa tidak terdaftar pada kelas');
+    await client.query(
+      `DELETE FROM attendance_records ar USING attendance_sessions ats
+       WHERE ar.session_id = ats.id AND ats.class_id = $1 AND ar.student_id = $2`,
+      [classId, studentId]
+    );
+    await client.query('DELETE FROM grades WHERE class_id = $1 AND student_id = $2', [classId, studentId]);
+    await client.query('DELETE FROM report_cards WHERE class_id = $1 AND student_id = $2', [classId, studentId]);
+    await client.query('DELETE FROM class_students WHERE class_id = $1 AND student_id = $2', [classId, studentId]);
+  });
+  return ok(res, null, 'Siswa berhasil dikeluarkan dari kelas');
+}
+
+async function deleteClass(req, res) {
+  const { id: classId } = req.params;
+  await withTransaction(async (client) => {
+    const kelas = await client.query('SELECT id FROM classes WHERE id = $1', [classId]);
+    if (!kelas.rowCount) throw AppError.notFound('Kelas tidak ditemukan');
+    await client.query('DELETE FROM grades WHERE class_id = $1', [classId]);
+    await client.query('DELETE FROM report_cards WHERE class_id = $1', [classId]);
+    await client.query('DELETE FROM classes WHERE id = $1', [classId]);
+  });
+  return ok(res, null, 'Kelas dan seluruh data akademik terkait berhasil dihapus');
+}
+
 async function getClassDetail(req, res) {
   const { id: classId } = req.params;
   const classRes = await pool.query(
@@ -157,5 +214,6 @@ async function getClassDetail(req, res) {
 }
 
 module.exports = {
-  createClass, listClasses, importClassStudents, addClassSubject, setHomeroomTeacher, getClassDetail,
+  createClass, listClasses, importClassStudents, addClassSubject, setHomeroomTeacher,
+  clearHomeroomTeacher, removeClassSubject, removeClassStudent, deleteClass, getClassDetail,
 };
