@@ -1,0 +1,18 @@
+import { AlertCircle, CheckCircle2, Database, KeyRound, Link2, RefreshCw, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import Button from "../../components/ui/Button";
+import Spinner from "../../components/ui/Spinner";
+import { getSystemStatus } from "../../services/adminService";
+
+export default function SystemSettingsPage() {
+  const [data, setData] = useState(null);
+  const [state, setState] = useState("loading");
+  const [error, setError] = useState("");
+  const load = useCallback(async () => { setState("loading"); try { setData(await getSystemStatus()); setState("ready"); } catch (requestError) { setError(requestError.message); setState("error"); } }, []);
+  useEffect(() => { load(); }, [load]);
+  return <main className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 lg:px-8"><header className="flex items-end justify-between gap-4"><div><h1 className="text-3xl font-bold text-[#20232D]">Status Sistem</h1><p className="mt-2 text-sm text-[#697184]">Pemeriksaan langsung koneksi dan keamanan database.</p></div><Button variant="secondary" onClick={load}><RefreshCw className={`h-4 w-4 ${state === "loading" ? "animate-spin" : ""}`} /> Periksa Ulang</Button></header>
+    {state === "loading" && !data ? <div className="flex min-h-[320px] items-center justify-center"><Spinner className="h-8 w-8 text-[#0756D9]" /></div> : state === "error" ? <section role="alert" className="mt-8 rounded-xl border border-red-100 bg-white p-10 text-center"><AlertCircle className="mx-auto h-9 w-9 text-red-500" /><p className="mt-3 text-red-700">{error}</p></section> : data && <><section className="mt-8 grid gap-4 sm:grid-cols-2"><Status icon={Link2} label="Koneksi Database" value={data.databaseConnected ? "Terhubung" : "Terputus"} good={data.databaseConnected} /><Status icon={ShieldCheck} label="Row Level Security" value={`${data.rls_enabled_tables} tabel aktif`} good={Number(data.rls_enabled_tables) === Number(data.public_tables)} /><Status icon={Database} label="Tabel Public" value={data.public_tables} good /><Status icon={KeyRound} label="Foreign Key" value={data.foreign_keys} good /></section><section className="mt-6 rounded-xl border bg-white p-6"><h2 className="font-bold">Detail Pemeriksaan</h2><dl className="mt-5 grid gap-4 sm:grid-cols-2"><Detail label="Database" value={data.database_name} /><Detail label="Indeks" value={data.indexes} /><Detail label="RLS aktif" value={`${data.rls_enabled_tables}/${data.public_tables}`} /><Detail label="Terakhir diperiksa" value={new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "medium" }).format(new Date(data.checked_at))} /></dl></section><p className="mt-5 rounded-lg bg-blue-50 p-4 text-sm text-blue-800">Log keamanan palsu telah dihapus. Halaman ini hanya menampilkan pemeriksaan yang benar-benar diperoleh dari PostgreSQL/Supabase.</p></>}
+  </main>;
+}
+function Status({ icon: Icon, label, value, good }) { return <article className="rounded-xl border bg-white p-5"><div className="flex items-center gap-3"><span className={`flex h-10 w-10 items-center justify-center rounded-lg ${good ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}><Icon className="h-5 w-5" /></span><div><p className="text-xs uppercase text-[#697184]">{label}</p><p className="mt-1 font-bold">{value}</p></div><CheckCircle2 className={`ml-auto h-5 w-5 ${good ? "text-emerald-500" : "text-red-400"}`} /></div></article>; }
+function Detail({ label, value }) { return <div className="rounded-lg bg-[#F5F7FA] p-4"><dt className="text-xs text-[#697184]">{label}</dt><dd className="mt-1 font-semibold text-[#20232D]">{value}</dd></div>; }

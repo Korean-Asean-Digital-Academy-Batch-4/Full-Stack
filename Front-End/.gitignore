@@ -1,0 +1,7 @@
+node_modules/
+# Folder dist sudah menjadi bagian repository existing agar hasil demo dapat
+# langsung disajikan; jangan abaikan aset build baru yang memiliki hash berbeda.
+.env
+.env.local
+.DS_Store
+coverage/
